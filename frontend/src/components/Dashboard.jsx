@@ -1,83 +1,15 @@
 import React, { useState } from 'react';
 
 export default function Dashboard({
-  products,
-  scores,
+  products = [],
+  scores = {},
   isLoading,
-  shopifyUrl,
-  shopifyToken,
-  groqKey,
-  connectedStore,
-  onConnect,
-  onDisconnect,
-  onSelectProduct,
-  addLogMessage
+  onSelectProduct
 }) {
-  const [shopUrlInput, setShopUrlInput] = useState(shopifyUrl || '');
-  const [accessTokenInput, setAccessTokenInput] = useState(shopifyToken || '');
-  const [groqKeyInput, setGroqKeyInput] = useState(groqKey || '');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  const handleConnectSubmit = async (e) => {
-    e.preventDefault();
-    if (!shopUrlInput || !accessTokenInput) {
-      setErrorMsg('Please provide both Shop URL and Access Token.');
-      return;
-    }
-    setErrorMsg('');
-    setIsVerifying(true);
-    addLogMessage('Connecting to Shopify store...', 'system');
-
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          shop_url: shopUrlInput,
-          access_token: accessTokenInput
-        })
-      });
-
-      const data = await response.json();
-      if (response.ok && data.success) {
-        addLogMessage(`Connected to Shopify store: ${data.shop_name} (${data.domain})`, 'success');
-        onConnect({
-          shopUrl: shopUrlInput,
-          accessToken: accessTokenInput,
-          groqKey: groqKeyInput,
-          storeName: data.shop_name
-        });
-      } else {
-        const errorText = data.detail || 'Failed verification.';
-        setErrorMsg(errorText);
-        addLogMessage(`Shopify connection failed: ${errorText}`, 'system');
-      }
-    } catch (error) {
-      setErrorMsg(`Connection error: ${error.message}`);
-      addLogMessage(`Shopify connection failed: ${error.message}`, 'system');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleDisconnect = () => {
-    onDisconnect();
-    addLogMessage('Disconnected from Shopify. Reverting to Mock Store Catalog.', 'system');
-  };
-
-  const handleSaveGroqKey = (e) => {
-    e.preventDefault();
-    onConnect({
-      shopUrl: shopUrlInput,
-      accessToken: accessTokenInput,
-      groqKey: groqKeyInput,
-      storeName: connectedStore ? connectedStore.name : null
-    });
-    addLogMessage(groqKeyInput ? 'Groq API Key saved successfully.' : 'Groq API Key cleared.', 'success');
-  };
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Calculate KPIs
+  const totalProducts = products.length;
   const auditedProducts = Object.keys(scores).length;
   const averageScore = auditedProducts > 0
     ? Math.round(Object.values(scores).reduce((sum, item) => sum + item.overall_score, 0) / auditedProducts)
@@ -90,114 +22,26 @@ export default function Dashboard({
     return 'score-low';
   };
 
+  const filteredProducts = products.filter(product =>
+    product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.tags?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div>
-      {/* Connection Panel */}
-      <div className="connection-panel">
-        <div className="glass-card">
-          <h2 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>🔌</span> Shopify Store Connection
-          </h2>
-          
-          {connectedStore ? (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ fontWeight: 600, color: 'var(--seo-green)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ display: 'inline-block', width: 8, height: 8, backgroundColor: 'var(--seo-green)', borderRadius: '50%' }}></span>
-                  Connected: {connectedStore.name}
-                </p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                  URL: {connectedStore.url}
-                </p>
-              </div>
-              <button className="btn btn-secondary" onClick={handleDisconnect}>
-                Disconnect
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleConnectSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="form-group">
-                  <label htmlFor="shop-url">Shopify URL</label>
-                  <input
-                    id="shop-url"
-                    type="text"
-                    className="form-control"
-                    placeholder="example.myshopify.com"
-                    value={shopUrlInput}
-                    onChange={(e) => setShopUrlInput(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="access-token">Admin API Access Token</label>
-                  <input
-                    id="access-token"
-                    type="password"
-                    className="form-control"
-                    placeholder="shpat_xxxxxxxxxxxxxxxxxxxxx"
-                    value={accessTokenInput}
-                    onChange={(e) => setAccessTokenInput(e.target.value)}
-                  />
-                </div>
-              </div>
-              {errorMsg && <p style={{ color: 'var(--seo-red)', fontSize: '0.85rem', marginBottom: '1rem' }}>{errorMsg}</p>}
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button type="submit" className="btn btn-primary" disabled={isVerifying}>
-                  {isVerifying ? 'Verifying...' : 'Connect Store'}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={() => {
-                  setShopUrlInput('');
-                  setAccessTokenInput('');
-                  setErrorMsg('');
-                  addLogMessage('Using fallback Sandbox environment.', 'system');
-                }}>
-                  Sandbox Mode
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-
-        {/* AI Config */}
-        <div className="glass-card">
-          <h2 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>🧠</span> Groq API Config
-          </h2>
-          <form onSubmit={handleSaveGroqKey}>
-            <div className="form-group">
-              <label htmlFor="groq-key">Groq API Key</label>
-              <input
-                id="groq-key"
-                type="password"
-                className="form-control"
-                placeholder="gsk_xxxxxxxxxxxxxxxxxxxx"
-                value={groqKeyInput}
-                onChange={(e) => setGroqKeyInput(e.target.value)}
-              />
-            </div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-              If no API key is specified, audits will run using local rule-based SEO diagnostics.
-            </p>
-            <button type="submit" className="btn btn-accent" style={{ width: '100%' }}>
-              Save Groq API Key
-            </button>
-          </form>
-        </div>
-      </div>
-
       {/* KPI Stats */}
       <div className="kpi-grid">
         <div className="glass-card kpi-card">
-          <div className="kpi-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent-blue)' }}>
-            📊
+          <div className="kpi-icon" style={{ background: 'rgba(37, 99, 235, 0.08)', color: 'var(--accent-blue)' }}>
+            📦
           </div>
           <div className="kpi-info">
             <p>Total Products</p>
-            <h3>{products.length}</h3>
+            <h3>{totalProducts}</h3>
           </div>
         </div>
         <div className="glass-card kpi-card">
-          <div className="kpi-icon" style={{ background: 'rgba(139, 92, 246, 0.1)', color: 'var(--accent-purple)' }}>
+          <div className="kpi-icon" style={{ background: 'rgba(124, 58, 237, 0.08)', color: 'var(--accent-purple)' }}>
             🔍
           </div>
           <div className="kpi-info">
@@ -206,7 +50,7 @@ export default function Dashboard({
           </div>
         </div>
         <div className="glass-card kpi-card">
-          <div className="kpi-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--seo-green)' }}>
+          <div className="kpi-icon" style={{ background: 'rgba(5, 150, 105, 0.08)', color: 'var(--seo-green)' }}>
             🎯
           </div>
           <div className="kpi-info">
@@ -218,25 +62,40 @@ export default function Dashboard({
 
       {/* Catalog Grid */}
       <div className="glass-card catalog-section">
-        <div className="section-header">
-          <h2>📦 Product Catalog {connectedStore ? `(${connectedStore.name})` : '(Sandbox)'}</h2>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Select a product to view SEO details and request optimization.
-          </span>
+        <div className="section-header" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h2>📋 Store Products Catalog</h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+              Select a product to audit titles, tags, descriptions, and media details.
+            </p>
+          </div>
+          
+          <div style={{ minWidth: '250px' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search products or tags..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ padding: '0.6rem 1rem' }}
+            />
+          </div>
         </div>
 
         {isLoading ? (
           <div className="spinner-wrapper">
             <div className="spinner"></div>
-            <p style={{ color: 'var(--text-secondary)' }}>Loading catalog products...</p>
+            <p style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Loading store products from Shopify...</p>
           </div>
-        ) : products.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
-            <p>No products found in this store catalog.</p>
+        ) : filteredProducts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.75rem' }}>🔍</span>
+            <p style={{ fontWeight: 500 }}>No products matched your search.</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Try adjusting your keywords or clearing the filter.</p>
           </div>
         ) : (
           <div className="product-grid">
-            {products.map((product) => {
+            {filteredProducts.map((product) => {
               const audit = scores[product.id];
               const score = audit ? audit.overall_score : null;
               
@@ -266,7 +125,7 @@ export default function Dashboard({
                     </div>
                     <button
                       className="btn btn-secondary"
-                      style={{ width: '100%', display: 'flex', gap: '0.25rem' }}
+                      style={{ width: '100%' }}
                       onClick={() => onSelectProduct(product)}
                     >
                       Audit & Optimize 🔍
