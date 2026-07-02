@@ -51,20 +51,27 @@ export default function OptimizerPanel({
 
   return (
     <div>
-      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         <button className="btn btn-secondary" onClick={onBack}>
           ⬅ Back to Catalog
         </button>
-        {optimizationData && (
-          <button className="btn btn-success" onClick={handleSyncSubmit} disabled={isSyncing}>
-            {isSyncing ? (
-              <>
-                <span className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block', marginRight: '8px' }}></span>
-                Syncing...
-              </>
-            ) : 'Sync Enhancements to Shopify 🚀'}
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          {optimizationData && (
+            <>
+              <button className="btn btn-primary" onClick={onRunOptimize} disabled={isOptimizing}>
+                {isOptimizing ? 'Generating...' : 'Re-run Optimizer 🔄'}
+              </button>
+              <button className="btn btn-success" onClick={handleSyncSubmit} disabled={isSyncing}>
+                {isSyncing ? (
+                  <>
+                    <span className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block', marginRight: '8px' }}></span>
+                    Syncing...
+                  </>
+                ) : 'Sync Enhancements to Shopify 🚀'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {!optimizationData ? (

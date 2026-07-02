@@ -23,10 +23,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Keep track of audit reports and optimization recommendations in memory
-# These are cached per session (cleared on sync or refresh)
-AUDIT_REPORTS = {}
-OPTIMIZED_DATA = {}
+import os
+import json
+
+DB_FILE = os.path.join(os.path.dirname(__file__), "db.json")
+
+def load_db() -> tuple[dict, dict]:
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                # Convert string keys back to int for product_id
+                audits = {int(k): v for k, v in data.get("audits", {}).items()}
+                opts = {int(k): v for k, v in data.get("optimizations", {}).items()}
+                return audits, opts
+        except Exception as e:
+            logger.error(f"Error loading database: {str(e)}")
+    return {}, {}
+
+def save_db(audits: dict, opts: dict):
+    try:
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump({
+                "audits": {str(k): v for k, v in audits.items()},
+                "optimizations": {str(k): v for k, v in opts.items()}
+            }, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"Error saving database: {str(e)}")
+
+# Keep track of audit reports and optimization recommendations
+AUDIT_REPORTS, OPTIMIZED_DATA = load_db()
 
 class ConnectionDetails(BaseModel):
     shop_url: str
@@ -194,6 +220,7 @@ async def analyze_product(
     # Run agent analysis (uses config-based GROQ_API_KEY)
     audit_report = analyze_product_seo(product, GROQ_API_KEY)
     AUDIT_REPORTS[product_id] = audit_report
+    save_db(AUDIT_REPORTS, OPTIMIZED_DATA)
     
     return audit_report
 
@@ -222,6 +249,7 @@ async def optimize_product(
     audit_report_dict = audit_report[0] if isinstance(audit_report, list) and len(audit_report) > 0 else audit_report
     optimized_data = optimize_product_seo(product, audit_report_dict, GROQ_API_KEY)
     OPTIMIZED_DATA[product_id] = optimized_data
+    save_db(AUDIT_REPORTS, OPTIMIZED_DATA)
     
     return optimized_data
 
@@ -286,6 +314,7 @@ async def sync_optimized_product(
                 del AUDIT_REPORTS[product_id]
             if product_id in OPTIMIZED_DATA:
                 del OPTIMIZED_DATA[product_id]
+            save_db(AUDIT_REPORTS, OPTIMIZED_DATA)
 
             return {"success": True, "message": "Product synced to Shopify store successfully."}
             
@@ -295,3 +324,10 @@ async def sync_optimized_product(
             status_code=400,
             detail=f"Failed syncing to Shopify: {str(e)}"
         )
+
+@app.get("/api/cache")
+def get_cached_reports():
+    return {
+        "scores": {str(k): v for k, v in AUDIT_REPORTS.items()},
+        "optimizations": {str(k): v for k, v in OPTIMIZED_DATA.items()}
+    }

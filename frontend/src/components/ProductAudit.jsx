@@ -75,15 +75,22 @@ export default function ProductAudit({
 
   return (
     <div>
-      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         <button className="btn btn-secondary" onClick={onBack}>
           ⬅ Back to Catalog
         </button>
-        {reportObj && (
-          <button className="btn btn-primary" onClick={onStartOptimize}>
-            Go to Optimizer Agent 🤖
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          {reportObj && (
+            <>
+              <button className="btn btn-secondary" onClick={onRunAudit} disabled={isAuditing}>
+                {isAuditing ? 'Analyzing...' : 'Re-run SEO Audit 🔄'}
+              </button>
+              <button className="btn btn-primary" onClick={onStartOptimize}>
+                Go to Optimizer Agent 🤖
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="audit-container">

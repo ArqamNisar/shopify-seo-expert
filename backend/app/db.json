@@ -1,0 +1,70 @@
+{
+  "audits": {
+    "7462018449542": [
+      {
+        "checks": [
+          {
+            "keyword_in_title": 5
+          },
+          {
+            "product_name_in_handle": 10
+          },
+          {
+            "meta_title_set": 10
+          },
+          {
+            "product_type_relevant": 5
+          },
+          {
+            "meta_title_length": 8
+          },
+          {
+            "content_quality": 10
+          },
+          {
+            "meta_description_set": 10
+          },
+          {
+            "meta_description_length": 6
+          },
+          {
+            "internal_links": 5
+          },
+          {
+            "image_count": 0
+          },
+          {
+            "alt_text": 5
+          },
+          {
+            "relevant_tags": 5
+          },
+          {
+            "status_active": 5
+          },
+          {
+            "metafields": 5
+          }
+        ],
+        "seo_score": 89,
+        "product_name": "Servo Motor",
+        "agent_reasoning": "The provided product information is well-structured and contains most of the necessary SEO elements. The title, handle, and meta title are well-set and contain the product name. The product type is also relevant to the product. However, there is room for improvement in terms of image count and meta description length. Additionally, the presence of custom metafields and the use of alt text for images are positives. The product's status is active and there are relevant tags, which also contribute to the overall SEO score."
+      }
+    ]
+  },
+  "optimizations": {
+    "7462018449542": {
+      "optimized_title": "High-Torque Servo Motor for Robotics & Automation",
+      "optimized_description": "<p>Experience precise control and high-torque performance with our servo motor, designed for demanding applications in robotics, automation, and DIY electronics. With smooth rotation, fast response, and excellent holding torque, this servo ensures accurate positioning and consistent performance.</p><h3>Key Features:</h3><ul><li>High precision control for accurate angular positioning</li><li>Durable build quality with high-strength gears and reliable housing</li><li>Fast response time ideal for robotics and automation</li><li>Wide compatibility with Arduino, Raspberry Pi, and other microcontrollers</li></ul><p>Perfect for professionals and beginners alike, our servo motor is engineered for durability and reliability, making it an excellent choice for a wide range of projects, from robotic arms and RC vehicles to CNC machinery and smart automation.</p>",
+      "optimized_tags": "servo motor, robotics, automation, DIY electronics, high-torque motor, precision control, durable build, fast response, wide compatibility, Arduino, Raspberry Pi",
+      "optimized_images": [
+        {
+          "id": 36429437403270,
+          "src": "https://cdn.shopify.com/s/files/1/0595/3454/0934/files/blue-servo-motor.jpg?v=1759997227",
+          "alt": "High-torque blue servo motor with visible branding on a white background, ideal for robotics and automation projects"
+        }
+      ],
+      "agent_reasoning": "The optimized title targets primary keywords 'servo motor' and 'high-torque' while being concise and attention-grabbing. The description is structured to highlight key features and benefits, addressing customer intent and providing a clear understanding of the product's capabilities and applications. The tags list is expanded to include relevant keywords, and the alt text for the image is descriptive, keyword-rich, and unique, providing a better user experience and improving search engine visibility."
+    }
+  }
+}

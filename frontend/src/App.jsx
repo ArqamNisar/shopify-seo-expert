@@ -67,6 +67,7 @@ export default function App() {
   useEffect(() => {
     if (connectedStore) {
       fetchProducts();
+      fetchCache();
     }
   }, [connectedStore]);
 
@@ -186,6 +187,20 @@ export default function App() {
       showToast(err.message, 'error');
     } finally {
       setIsLoadingCatalog(false);
+    }
+  };
+
+  const fetchCache = async () => {
+    if (!shopifyUrl || !shopifyToken) return;
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/cache');
+      if (response.ok) {
+        const data = await response.json();
+        setScores(data.scores || {});
+        setOptimizations(data.optimizations || {});
+      }
+    } catch (err) {
+      console.error('Failed to fetch cache:', err);
     }
   };
 
