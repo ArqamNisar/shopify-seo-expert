@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import ProductAudit from './components/ProductAudit';
 import OptimizerPanel from './components/OptimizerPanel';
-import AgentLog from './components/AgentLog';
 
 export default function App() {
   // Navigation / View State
@@ -505,7 +504,6 @@ export default function App() {
         )}
 
         {/* Console logs terminal at bottom */}
-        <AgentLog logs={logs} />
       </main>
 
       {/* Toast notifications */}
