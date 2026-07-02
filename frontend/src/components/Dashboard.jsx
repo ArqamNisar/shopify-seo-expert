@@ -98,56 +98,95 @@ export default function Dashboard({
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Try adjusting your keywords or clearing the filter.</p>
           </div>
         ) : (
-          <div className="product-grid">
-            {filteredProducts.map((product) => {
-              const auditReport = scores[product.id];
-              const reportObj = Array.isArray(auditReport) ? auditReport[0] : auditReport;
-              const score = reportObj ? (reportObj.seo_score !== undefined ? reportObj.seo_score : reportObj.overall_score) : null;
-              
-              return (
-                <div key={product.id} className="glass-card product-card">
-                  <img
-                    className="product-thumb"
-                    src={product.images && product.images.length > 0 ? product.images[0].src : 'https://placehold.co/300x200?text=No+Image'}
-                    alt={product.images && product.images.length > 0 ? product.images[0].alt : product.title}
-                  />
-                  <div className="product-info">
-                    <div>
-                      <div className="product-meta">
+          <div className="seo-table-container">
+            <table className="seo-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '60px' }}>Image</th>
+                  <th>Product Details</th>
+                  <th>Status</th>
+                  <th>SEO Score</th>
+                  <th>Tags</th>
+                  <th style={{ width: '220px', textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map((product) => {
+                  const auditReport = scores[product.id];
+                  const reportObj = Array.isArray(auditReport) ? auditReport[0] : auditReport;
+                  const score = reportObj ? (reportObj.seo_score !== undefined ? reportObj.seo_score : reportObj.overall_score) : null;
+                  
+                  return (
+                    <tr key={product.id}>
+                      <td>
+                        <img
+                          className="table-thumb"
+                          src={product.images && product.images.length > 0 ? product.images[0].src : 'https://placehold.co/100x100?text=No+Image'}
+                          alt=""
+                        />
+                      </td>
+                      <td>
+                        <div className="table-product-title" title={product.title}>
+                          {product.title}
+                        </div>
+                        <div className="table-product-id">
+                          ID: {product.id}
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ 
+                          fontSize: '0.8rem', 
+                          fontWeight: 600, 
+                          textTransform: 'uppercase',
+                          color: product.status?.toLowerCase() === 'active' ? 'var(--seo-green)' : 'var(--text-muted)',
+                          background: product.status?.toLowerCase() === 'active' ? 'var(--seo-green-glow)' : 'var(--bg-tertiary)',
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '4px',
+                          border: product.status?.toLowerCase() === 'active' ? '1px solid rgba(5, 150, 105, 0.15)' : '1px solid var(--border-color)'
+                        }}>
+                          {product.status || 'DRAFT'}
+                        </span>
+                      </td>
+                      <td>
                         <span className={`score-badge ${getScoreBadgeClass(score)}`}>
                           {score !== null ? `SEO: ${score}%` : 'Not Audited'}
                         </span>
-                        <span className="product-tags">
-                          ID: {product.id}
-                        </span>
-                      </div>
-                      <h3 className="product-title" title={product.title}>
-                        {product.title}
-                      </h3>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        Tags: {product.tags || '(None)'}
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ flex: 1, padding: '0.5rem 0.5rem', fontSize: '0.85rem' }}
-                        onClick={() => onSelectProduct(product, 'audit')}
-                      >
-                        Audit 🔍
-                      </button>
-                      <button
-                        className="btn btn-primary"
-                        style={{ flex: 1, padding: '0.5rem 0.5rem', fontSize: '0.85rem' }}
-                        onClick={() => onSelectProduct(product, 'optimize')}
-                      >
-                        Optimize 🤖
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                      </td>
+                      <td>
+                        <div style={{ 
+                          fontSize: '0.8rem', 
+                          color: 'var(--text-secondary)', 
+                          maxWidth: '180px', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          whiteSpace: 'nowrap' 
+                        }} title={product.tags || '(None)'}>
+                          {product.tags || '(None)'}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                            onClick={() => onSelectProduct(product, 'audit')}
+                          >
+                            Audit 🔍
+                          </button>
+                          <button
+                            className="btn btn-primary"
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                            onClick={() => onSelectProduct(product, 'optimize')}
+                          >
+                            Optimize 🤖
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

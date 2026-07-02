@@ -897,3 +897,71 @@ body.dark-theme .toast-msg {
   from { transform: translateY(100px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* Glassmorphic Table Layout */
+.seo-table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 1.5rem;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--glass-bg);
+}
+
+.seo-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.seo-table th {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  padding: 1rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.seo-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  vertical-align: middle;
+  transition: var(--transition-smooth);
+}
+
+.seo-table tr:last-child td {
+  border-bottom: none;
+}
+
+.seo-table tr:hover td {
+  background: rgba(14, 165, 233, 0.02);
+}
+
+body.dark-theme .seo-table tr:hover td {
+  background: rgba(0, 242, 254, 0.015);
+}
+
+.table-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.table-product-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.table-product-id {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
