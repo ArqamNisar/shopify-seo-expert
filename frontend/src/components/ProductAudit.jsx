@@ -16,7 +16,19 @@ export default function ProductAudit({
   };
 
   const reportObj = Array.isArray(auditReport) ? auditReport[0] : auditReport;
-  const score = reportObj ? (reportObj.seo_score !== undefined ? reportObj.seo_score : reportObj.overall_score) : 0;
+
+  // Calculate the total score directly from the sum of the checks to guarantee consistency
+  const calculateTotalScore = () => {
+    if (!reportObj || !reportObj.checks) return 0;
+    return reportObj.checks.reduce((sum, check) => {
+      const val = Object.values(check)[0];
+      return sum + (typeof val === 'number' ? val : 0);
+    }, 0);
+  };
+
+  const score = reportObj 
+    ? (reportObj.checks ? calculateTotalScore() : (reportObj.seo_score !== undefined ? reportObj.seo_score : reportObj.overall_score)) 
+    : 0;
 
   const circumference = 2 * Math.PI * 70; // r = 70
   const strokeDashoffset = circumference - (score / 100) * circumference;

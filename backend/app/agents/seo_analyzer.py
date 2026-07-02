@@ -301,14 +301,35 @@ def analyze_product_seo(product: dict, user_api_key: str = None) -> list:
         result_str = chat_completion.choices[0].message.content
         data = json.loads(result_str)
         # Groq with response_format can return the dict direct. Make sure we return a list.
+        report_list = []
         if isinstance(data, dict):
             # If the model wraps it in a top-level key or outputs a single object instead of array
             if "checks" in data:
-                return [data]
-            for val in data.values():
-                if isinstance(val, list) and len(val) > 0 and "checks" in val[0]:
-                    return val
-        return data if isinstance(data, list) else [data]
+                report_list = [data]
+            else:
+                for val in data.values():
+                    if isinstance(val, list) and len(val) > 0 and isinstance(val[0], dict) and "checks" in val[0]:
+                        report_list = val
+                        break
+                if not report_list:
+                    report_list = [data]
+        elif isinstance(data, list):
+            report_list = data
+        else:
+            report_list = [data]
+
+        # Recalculate seo_score mathematically to guarantee accuracy
+        for report in report_list:
+            if isinstance(report, dict) and "checks" in report and isinstance(report["checks"], list):
+                total_sum = 0
+                for check in report["checks"]:
+                    if isinstance(check, dict) and len(check) > 0:
+                        val = list(check.values())[0]
+                        if isinstance(val, (int, float)):
+                            total_sum += int(val)
+                report["seo_score"] = total_sum
+
+        return report_list
         
     except Exception as e:
         # Fall back gracefully on Groq error
