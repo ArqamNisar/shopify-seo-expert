@@ -59,6 +59,24 @@ def check_credentials(shopify_shop_url: Optional[str], shopify_access_token: Opt
         )
     return clean_shop_url(shopify_shop_url), shopify_access_token
 
+async def get_product_metafields(product_id: int, shop_url: str, access_token: str) -> list:
+    """Fetches product metafields from Shopify API."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://{shop_url}/admin/api/2024-04/products/{product_id}/metafields.json",
+                headers=get_shopify_headers(access_token),
+                timeout=10.0
+            )
+            if response.status_code == 200:
+                return response.json().get("metafields", [])
+            else:
+                logger.warning(f"Failed to fetch metafields for product {product_id}: {response.text}")
+                return []
+    except Exception as e:
+        logger.warning(f"Exception fetching metafields for product {product_id}: {str(e)}")
+        return []
+
 @app.get("/api/health")
 def health_check():
     # Show if Groq API Key is configured on the backend
@@ -145,7 +163,11 @@ async def get_product_detail(
                 timeout=10.0
             )
             if response.status_code == 200:
-                return response.json().get("product")
+                product = response.json().get("product", {})
+                # Fetch metafields and attach them to the product
+                metafields = await get_product_metafields(product_id, shop_url, access_token)
+                product["metafields_list"] = metafields
+                return product
             else:
                 raise HTTPException(
                     status_code=response.status_code, 
@@ -197,7 +219,8 @@ async def optimize_product(
         AUDIT_REPORTS[product_id] = audit_report
         
     # Run optimizer agent
-    optimized_data = optimize_product_seo(product, audit_report, GROQ_API_KEY)
+    audit_report_dict = audit_report[0] if isinstance(audit_report, list) and len(audit_report) > 0 else audit_report
+    optimized_data = optimize_product_seo(product, audit_report_dict, GROQ_API_KEY)
     OPTIMIZED_DATA[product_id] = optimized_data
     
     return optimized_data

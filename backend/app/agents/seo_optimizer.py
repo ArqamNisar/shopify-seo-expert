@@ -71,6 +71,9 @@ def optimize_product_seo(product: dict, audit_report: dict, user_api_key: str = 
     Optimizes product details for search engines.
     Uses Groq llama3-70b-8192 if credentials are provided, falls back to rules-based formatter otherwise.
     """
+    if isinstance(audit_report, list) and len(audit_report) > 0:
+        audit_report = audit_report[0]
+
     api_key = user_api_key or GROQ_API_KEY
     if not api_key:
         return run_heuristic_optimization(product, audit_report)

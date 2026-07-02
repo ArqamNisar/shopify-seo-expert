@@ -309,10 +309,14 @@ export default function App() {
     }
   };
 
-  const handleSelectProduct = (product) => {
+  const handleSelectProduct = (product, tab = 'audit') => {
     setSelectedProduct(product);
-    setActiveTab('audit');
-    addLogMessage(`Auditing SEO fields for "${product.title}"...`, 'system');
+    setActiveTab(tab);
+    if (tab === 'audit') {
+      addLogMessage(`Auditing SEO fields for "${product.title}"...`, 'system');
+    } else {
+      addLogMessage(`Opening Optimizer Console for "${product.title}"...`, 'system');
+    }
   };
 
   // If not logged in, render ONLY the Login screen
@@ -493,7 +497,10 @@ export default function App() {
             onRunOptimize={runSeoOptimize}
             onSync={syncToShopify}
             isSyncing={isSyncing}
-            onBack={() => setActiveTab('audit')}
+            onBack={() => {
+              setActiveTab('dashboard');
+              setSelectedProduct(null);
+            }}
           />
         )}
 

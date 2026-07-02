@@ -12,7 +12,11 @@ export default function Dashboard({
   const totalProducts = products.length;
   const auditedProducts = Object.keys(scores).length;
   const averageScore = auditedProducts > 0
-    ? Math.round(Object.values(scores).reduce((sum, item) => sum + item.overall_score, 0) / auditedProducts)
+    ? Math.round(Object.values(scores).reduce((sum, item) => {
+        const reportObj = Array.isArray(item) ? item[0] : item;
+        const s = reportObj ? (reportObj.seo_score !== undefined ? reportObj.seo_score : reportObj.overall_score) : 0;
+        return sum + s;
+      }, 0) / auditedProducts)
     : null;
 
   const getScoreBadgeClass = (score) => {
@@ -96,8 +100,9 @@ export default function Dashboard({
         ) : (
           <div className="product-grid">
             {filteredProducts.map((product) => {
-              const audit = scores[product.id];
-              const score = audit ? audit.overall_score : null;
+              const auditReport = scores[product.id];
+              const reportObj = Array.isArray(auditReport) ? auditReport[0] : auditReport;
+              const score = reportObj ? (reportObj.seo_score !== undefined ? reportObj.seo_score : reportObj.overall_score) : null;
               
               return (
                 <div key={product.id} className="glass-card product-card">
@@ -123,13 +128,22 @@ export default function Dashboard({
                         Tags: {product.tags || '(None)'}
                       </p>
                     </div>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ width: '100%' }}
-                      onClick={() => onSelectProduct(product)}
-                    >
-                      Audit & Optimize 🔍
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                      <button
+                        className="btn btn-secondary"
+                        style={{ flex: 1, padding: '0.5rem 0.5rem', fontSize: '0.85rem' }}
+                        onClick={() => onSelectProduct(product, 'audit')}
+                      >
+                        Audit 🔍
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        style={{ flex: 1, padding: '0.5rem 0.5rem', fontSize: '0.85rem' }}
+                        onClick={() => onSelectProduct(product, 'optimize')}
+                      >
+                        Optimize 🤖
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

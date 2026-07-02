@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 export default function ProductAudit({
   product,
@@ -15,15 +15,51 @@ export default function ProductAudit({
     return 'var(--seo-red)';
   };
 
-  const getScoreBgGlow = (score) => {
-    if (score >= 80) return 'var(--seo-green-glow)';
-    if (score >= 50) return 'var(--seo-orange-glow)';
-    return 'var(--seo-red-glow)';
-  };
+  const reportObj = Array.isArray(auditReport) ? auditReport[0] : auditReport;
+  const score = reportObj ? (reportObj.seo_score !== undefined ? reportObj.seo_score : reportObj.overall_score) : 0;
 
   const circumference = 2 * Math.PI * 70; // r = 70
-  const score = auditReport ? auditReport.overall_score : 0;
   const strokeDashoffset = circumference - (score / 100) * circumference;
+
+  const getCheckScore = (key) => {
+    if (!reportObj || !reportObj.checks) return 0;
+    const checkItem = reportObj.checks.find(c => Object.keys(c)[0] === key);
+    return checkItem ? Object.values(checkItem)[0] : 0;
+  };
+
+  const CHECK_METADATA = {
+    keyword_in_title: { label: "Keyword in Title", max: 5, desc: "Check if the primary search keyword is present in the title." },
+    product_name_in_handle: { label: "Product Name in Handle", max: 10, desc: "Verify if the URL handle contains the exact product name for SEO-friendly URLs." },
+    meta_title_set: { label: "Meta Title Set", max: 10, desc: "Check if search engine listing page title (meta title) is configured." },
+    product_type_relevant: { label: "Product Type Set & Relevant", max: 5, desc: "Ensure the product type categorizes the product correctly." },
+    meta_title_length: { label: "Meta Title Length (30-60)", max: 10, desc: "Ideal meta title length is between 30 and 60 characters to avoid search result truncation." },
+    content_quality: { label: "Content Quality & Length (>300 words)", max: 10, desc: "Description length should exceed 300 words with rich, informative content." },
+    meta_description_set: { label: "Meta Description Set", max: 10, desc: "Check if search engine listing snippet (meta description) is configured." },
+    meta_description_length: { label: "Meta Description Length (120-190)", max: 10, desc: "Meta description should be between 120 and 190 characters for ideal search layout." },
+    internal_links: { label: "Internal Links", max: 5, desc: "At least one internal page/product/collection link (<a href>) should be present in description HTML." },
+    image_count: { label: "Image Count (>= 3)", max: 5, desc: "Product should have at least 3 high-quality product images." },
+    alt_text: { label: "Image Alt Texts", max: 5, desc: "Verify altText is present for all images to support image visual search." },
+    relevant_tags: { label: "Relevant Tags (>= 2)", max: 5, desc: "Product should have at least 2 relevant product tags." },
+    status_active: { label: "Status Active", max: 5, desc: "Product status must be ACTIVE so search engines can index it." },
+    metafields: { label: "Custom Metafields (>= 1)", max: 5, desc: "At least one custom metafield should be defined on the product." }
+  };
+
+  // Re-calculate percentages for mini-scores breakdown
+  const titleScorePercent = reportObj && reportObj.checks
+    ? Math.round(((getCheckScore('keyword_in_title') + getCheckScore('product_name_in_handle') + getCheckScore('meta_title_set') + getCheckScore('meta_title_length')) / 35) * 100)
+    : 0;
+
+  const descScorePercent = reportObj && reportObj.checks
+    ? Math.round(((getCheckScore('content_quality') + getCheckScore('meta_description_set') + getCheckScore('meta_description_length') + getCheckScore('internal_links')) / 35) * 100)
+    : 0;
+
+  const imagesScorePercent = reportObj && reportObj.checks
+    ? Math.round(((getCheckScore('image_count') + getCheckScore('alt_text')) / 10) * 100)
+    : 0;
+
+  const tagsScorePercent = reportObj && reportObj.checks
+    ? Math.round(((getCheckScore('relevant_tags') + getCheckScore('status_active') + getCheckScore('metafields') + getCheckScore('product_type_relevant')) / 20) * 100)
+    : 0;
 
   return (
     <div>
@@ -31,7 +67,7 @@ export default function ProductAudit({
         <button className="btn btn-secondary" onClick={onBack}>
           ⬅ Back to Catalog
         </button>
-        {auditReport && (
+        {reportObj && (
           <button className="btn btn-primary" onClick={onStartOptimize}>
             Go to Optimizer Agent 🤖
           </button>
@@ -49,7 +85,7 @@ export default function ProductAudit({
           <h2 style={{ fontSize: '1.4rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>{product.title}</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Product ID: {product.id}</p>
 
-          {!auditReport ? (
+          {!reportObj ? (
             <div style={{ margin: '2rem 0', width: '100%' }}>
               <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
                 This product has not been audited yet. Trigger the SEO Expert Analyzer Agent to generate a detailed report.
@@ -89,51 +125,37 @@ export default function ProductAudit({
               <div className="scores-breakdown-grid">
                 <div className="score-mini-card">
                   <label>Title</label>
-                  <span style={{ color: getScoreColor(auditReport.scores.title_score) }}>
-                    {auditReport.scores.title_score}
+                  <span style={{ color: getScoreColor(titleScorePercent) }}>
+                    {titleScorePercent}%
                   </span>
                 </div>
                 <div className="score-mini-card">
                   <label>Description</label>
-                  <span style={{ color: getScoreColor(auditReport.scores.description_score) }}>
-                    {auditReport.scores.description_score}
+                  <span style={{ color: getScoreColor(descScorePercent) }}>
+                    {descScorePercent}%
                   </span>
                 </div>
                 <div className="score-mini-card">
                   <label>Images</label>
-                  <span style={{ color: getScoreColor(auditReport.scores.images_score) }}>
-                    {auditReport.scores.images_score}
+                  <span style={{ color: getScoreColor(imagesScorePercent) }}>
+                    {imagesScorePercent}%
                   </span>
                 </div>
                 <div className="score-mini-card">
-                  <label>Tags</label>
-                  <span style={{ color: getScoreColor(auditReport.scores.tags_score) }}>
-                    {auditReport.scores.tags_score}
+                  <label>Tags & Meta</label>
+                  <span style={{ color: getScoreColor(tagsScorePercent) }}>
+                    {tagsScorePercent}%
                   </span>
                 </div>
               </div>
 
-              {/* Keywords Card */}
-              {auditReport.keywords_detected && auditReport.keywords_detected.length > 0 && (
-                <div style={{ marginTop: '1.5rem', textAlign: 'left', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Keywords Detected</h4>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    {auditReport.keywords_detected.map((kw, i) => (
-                      <span key={i} style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.06)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-                        🔑 {kw}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Agent Diagnosis Text */}
+              {/* Diagnostic Reasoning Box */}
               <div style={{ marginTop: '1.5rem', textAlign: 'left', background: 'rgba(139, 92, 246, 0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(139,92,246,0.15)' }}>
                 <h4 style={{ fontSize: '0.85rem', color: '#c084fc', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'flex', gap: '0.25rem' }}>
                   <span>🤖</span> Diagnostic Reasoning
                 </h4>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                  {auditReport.agent_reasoning}
+                  {reportObj.agent_reasoning}
                 </p>
               </div>
             </div>
@@ -141,34 +163,67 @@ export default function ProductAudit({
         </div>
 
         {/* Right Side: Audit Issues Details */}
-        <div className="glass-card">
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
           <h2>🕵️ SEO Audit Findings</h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Actionable optimization tasks recommended by the SEO Agent.
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem', marginBottom: '1.5rem' }}>
+            Actionable optimization tasks evaluated by the SEO Agent.
           </p>
 
-          {!auditReport ? (
+          {!reportObj ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px', color: 'var(--text-muted)' }}>
               <p>No audit details available.</p>
-              <p style={{ fontSize: '0.8rem' }}>Trigger the audit agent above to start diagnosing.</p>
+              <p style={{ fontSize: '0.85rem' }}>Trigger the audit agent to start diagnosing.</p>
             </div>
-          ) : auditReport.issues && auditReport.issues.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px', color: 'var(--seo-green)', textAlign: 'center' }}>
-              <span style={{ fontSize: '2rem' }}>🎉</span>
-              <p style={{ fontWeight: 600, marginTop: '0.5rem' }}>Perfect SEO Health!</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No optimization warnings found for this product.</p>
+          ) : !reportObj.checks ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px', color: 'var(--text-muted)' }}>
+              <p>Old audit format detected.</p>
+              <p style={{ fontSize: '0.85rem' }}>Please run the SEO Audit Agent again to use the new 14-point check system.</p>
             </div>
           ) : (
-            <div className="issues-list">
-              {auditReport.issues && auditReport.issues.map((issue, idx) => (
-                <div key={idx} className={`issue-item ${issue.severity}`}>
-                  <span className={`issue-badge ${issue.severity}`}>{issue.severity}</span>
-                  <div className="issue-content">
-                    <p>{issue.message}</p>
-                    <div className="issue-type">Component: {issue.type}</div>
+            <div className="issues-list" style={{ overflowY: 'auto', maxHeight: '600px', paddingRight: '0.5rem' }}>
+              {Object.entries(CHECK_METADATA).map(([key, meta]) => {
+                const s = getCheckScore(key);
+                const isFull = s === meta.max;
+                const isFailed = s === 0;
+                
+                const borderColor = isFull ? 'var(--seo-green)' : (isFailed ? 'var(--seo-red)' : 'var(--seo-orange)');
+                const bgColor = isFull ? 'var(--seo-green-glow)' : (isFailed ? 'var(--seo-red-glow)' : 'var(--seo-orange-glow)');
+                const badgeLabel = isFull ? 'Perfect' : (isFailed ? 'Missing / Fail' : 'Partial');
+                const badgeClass = isFull ? 'low' : (isFailed ? 'high' : 'medium');
+
+                return (
+                  <div 
+                    key={key} 
+                    className="issue-item" 
+                    style={{ 
+                      borderLeft: `4px solid ${borderColor}`, 
+                      background: bgColor, 
+                      marginBottom: '0.5rem', 
+                      display: 'flex', 
+                      justifyContent: 'space-between',
+                      alignItems: 'center' 
+                    }}
+                  >
+                    <div style={{ flex: 1, paddingRight: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{meta.label}</span>
+                        <span className={`issue-badge ${badgeClass}`} style={{ fontSize: '0.65rem' }}>{badgeLabel}</span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem', marginBottom: 0 }}>
+                        {meta.desc}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right', minWidth: '60px' }}>
+                      <span style={{ fontSize: '1rem', fontWeight: 700, color: borderColor }}>
+                        {s}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        /{meta.max}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
