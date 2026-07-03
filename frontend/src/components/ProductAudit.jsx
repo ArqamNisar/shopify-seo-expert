@@ -53,6 +53,8 @@ export default function ProductAudit({
   product,
   auditReport,
   shopifyUrl = '',
+  targetKeyword = '',
+  onTargetKeywordChange,
   onRunAudit,
   isAuditing,
   onStartOptimize,
@@ -148,7 +150,7 @@ export default function ProductAudit({
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           {reportObj && (
             <>
-              <button className="btn btn-secondary" onClick={onRunAudit} disabled={isAuditing}>
+              <button className="btn btn-secondary" onClick={() => onRunAudit(targetKeyword)} disabled={isAuditing}>
                 {isAuditing ? 'Analyzing...' : 'Re-run SEO Audit 🔄'}
               </button>
               <button className="btn btn-primary" onClick={onStartOptimize}>
@@ -168,14 +170,31 @@ export default function ProductAudit({
             style={{ width: '120px', height: '120px', borderRadius: '12px', objectFit: 'cover', marginBottom: '1rem', border: '1px solid var(--border-color)' }}
           />
           <h2 style={{ fontSize: '1.4rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>{product.title}</h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Product ID: {product.id}</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>Product ID: {product.id}</p>
+
+          {/* Target Keyword Input Field */}
+          <div style={{ margin: '0rem 0 1.25rem', width: '100%', textAlign: 'left' }}>
+            <label htmlFor="target-keyword-input" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.4rem' }}>
+              Target SEO Keyword / Phrase (optional)
+            </label>
+            <input
+              id="target-keyword-input"
+              type="text"
+              placeholder="e.g. robotic arm kits, servo motor"
+              className="form-control"
+              style={{ width: '100%', padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+              value={targetKeyword}
+              onChange={(e) => onTargetKeywordChange(e.target.value)}
+              disabled={isAuditing}
+            />
+          </div>
 
           {!reportObj ? (
-            <div style={{ margin: '2rem 0', width: '100%' }}>
+            <div style={{ margin: '1rem 0', width: '100%' }}>
               <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
                 This product has not been audited yet. Trigger the SEO Expert Analyzer Agent to generate a detailed report.
               </p>
-              <button className="btn btn-primary" style={{ width: '100%' }} onClick={onRunAudit} disabled={isAuditing}>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => onRunAudit(targetKeyword)} disabled={isAuditing}>
                 {isAuditing ? (
                   <>
                     <span className="spinner spinner-purple" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block', marginRight: '8px' }}></span>

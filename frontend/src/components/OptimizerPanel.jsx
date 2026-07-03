@@ -51,6 +51,8 @@ export default function OptimizerPanel({
   product,
   optimizationData,
   shopifyUrl = '',
+  targetKeyword = '',
+  onTargetKeywordChange,
   isOptimizing,
   onRunOptimize,
   onSync,
@@ -119,10 +121,23 @@ export default function OptimizerPanel({
         <button className="btn btn-secondary" onClick={onBack}>
           ⬅ Back to Catalog
         </button>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.25rem 0.75rem', borderRadius: 'var(--border-radius-sm)', border: '1px solid var(--border-color)' }}>
+            <label htmlFor="opt-keyword" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Target Keyword:</label>
+            <input
+              id="opt-keyword"
+              type="text"
+              placeholder="optional keyword"
+              className="form-control"
+              style={{ padding: '0.2rem 0.5rem', fontSize: '0.85rem', width: '160px', border: 'none', background: 'transparent', outline: 'none' }}
+              value={targetKeyword}
+              onChange={(e) => onTargetKeywordChange(e.target.value)}
+              disabled={isOptimizing}
+            />
+          </div>
           {optimizationData && (
             <>
-              <button className="btn btn-primary" onClick={onRunOptimize} disabled={isOptimizing}>
+              <button className="btn btn-primary" onClick={() => onRunOptimize(targetKeyword)} disabled={isOptimizing}>
                 {isOptimizing ? 'Generating...' : 'Re-run Optimizer 🔄'}
               </button>
               <button className="btn btn-success" onClick={handleSyncSubmit} disabled={isSyncing}>
@@ -145,7 +160,7 @@ export default function OptimizerPanel({
           <p style={{ color: 'var(--text-secondary)', maxWidth: '500px', margin: '0.5rem auto 2rem' }}>
             Run the Optimizer Agent to let the model write high-performing titles, SEO-friendly HTML descriptions, descriptive tags, and visual search alt texts.
           </p>
-          <button className="btn btn-primary" onClick={onRunOptimize} disabled={isOptimizing}>
+          <button className="btn btn-primary" onClick={() => onRunOptimize(targetKeyword)} disabled={isOptimizing}>
             {isOptimizing ? (
               <>
                 <span className="spinner spinner-purple" style={{ width: '16px', height: '16px', borderWidth: '2px', display: 'inline-block', marginRight: '8px' }}></span>

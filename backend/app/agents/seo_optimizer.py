@@ -3,7 +3,7 @@ import re
 from groq import Groq
 from backend.app.config import GROQ_API_KEY, GROQ_MODEL_OPTIMIZER
 
-def run_heuristic_optimization(product: dict, audit_report: dict) -> dict:
+def run_heuristic_optimization(product: dict, audit_report: dict, target_keyword: str = None) -> dict:
     """Fallback heuristic optimizer when Groq API Key is not available."""
     title = product.get("title", "")
     description = product.get("body_html", "") or product.get("description", "")
@@ -17,6 +17,10 @@ def run_heuristic_optimization(product: dict, audit_report: dict) -> dict:
 
     # Optimize title: Capitalize, strip, and make sure it has the name of the store or basic tags
     opt_title = title.strip().title()
+    if target_keyword:
+        kw = target_keyword.strip().title()
+        if kw not in opt_title:
+            opt_title = f"{kw} - {opt_title}"
     if len(opt_title) < 30:
         opt_title = f"{opt_title} - High Quality & Premium Edition"
     elif len(opt_title) > 70:
@@ -41,6 +45,8 @@ def run_heuristic_optimization(product: dict, audit_report: dict) -> dict:
 
     # Inject standard optimization tags
     essential_tags = ["premium", "bestseller", "shopify-seo", "quality-goods"]
+    if target_keyword:
+        essential_tags.append(target_keyword.lower().strip())
     for et in essential_tags:
         if et not in tag_list:
             tag_list.append(et)
@@ -66,7 +72,7 @@ def run_heuristic_optimization(product: dict, audit_report: dict) -> dict:
         "agent_reasoning": "Constructed standardized optimization outputs: Capitalized title, wrapped description into clean HTML sections with bulleted features, and mapped image positions to descriptive alt labels (Groq API Key not active, using rule-based formatter)."
     }
 
-def optimize_product_seo(product: dict, audit_report: dict, user_api_key: str = None) -> dict:
+def optimize_product_seo(product: dict, audit_report: dict, user_api_key: str = None, target_keyword: str = None) -> dict:
     """
     Optimizes product details for search engines.
     Uses Groq llama3-70b-8192 if credentials are provided, falls back to rules-based formatter otherwise.
@@ -76,7 +82,7 @@ def optimize_product_seo(product: dict, audit_report: dict, user_api_key: str = 
 
     api_key = user_api_key or GROQ_API_KEY
     if not api_key:
-        return run_heuristic_optimization(product, audit_report)
+        return run_heuristic_optimization(product, audit_report, target_keyword)
 
     title = product.get("title", "")
     description = product.get("body_html", "") or product.get("description", "")
@@ -100,14 +106,15 @@ def optimize_product_seo(product: dict, audit_report: dict, user_api_key: str = 
     - Original Description (Raw Text): "{clean_desc}"
     - Original Tags: "{tags}"
     - Original Images: {json.dumps(image_details)}
+    - Target SEO Keyword: "{target_keyword or '(Not specified)'}"
     
     Here is the SEO Audit Report containing issues:
     {json.dumps(audit_report)}
 
     Task Instructions:
-    1. Optimized Title: Write a title between 50-60 characters. Place primary keywords first. It must sound natural and drive clicks.
-    2. Optimized Description: Write an engaging, HTML-structured description (using standard HTML formatting like <p>, <h3>, <ul>, <li>). It should be 150-300 words. Describe features, benefits, and address customer intent without spamming.
-    3. Optimized Tags: Expand tags list to 6-10 keywords separated by commas.
+    1. Optimized Title: Write a title between 50-60 characters. Place primary keywords first (if target keyword is specified, prioritize it!). It must sound natural and drive clicks.
+    2. Optimized Description: Write an engaging, HTML-structured description (using standard HTML formatting like <p>, <h3>, <ul>, <li>). It should be 150-300 words. Describe features, benefits, and address customer intent (make sure to integrate the target keyword naturally at least 2-3 times if specified!).
+    3. Optimized Tags: Expand tags list to 6-10 keywords separated by commas (include the target keyword in tags if specified!).
     4. Optimized Image Alt Texts: Provide a descriptive, keyword-rich, and natural alt text for each image. Make each alt text unique and match the image position.
 
     Return a JSON object exactly matching this schema:
@@ -148,6 +155,6 @@ def optimize_product_seo(product: dict, audit_report: dict, user_api_key: str = 
         
     except Exception as e:
         # Fall back gracefully on Groq error
-        result = run_heuristic_optimization(product, audit_report)
+        result = run_heuristic_optimization(product, audit_report, target_keyword)
         result["agent_reasoning"] = f"Heuristic optimization applied because Groq API call failed: {str(e)}"
         return result

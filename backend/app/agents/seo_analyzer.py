@@ -3,7 +3,7 @@ import re
 from groq import Groq
 from backend.app.config import GROQ_API_KEY, GROQ_MODEL_ANALYZER
 
-def run_heuristic_analysis(product: dict) -> list:
+def run_heuristic_analysis(product: dict, target_keyword: str = None) -> list:
     """Fallback heuristic analyzer when Groq API Key is not available."""
     title = product.get("title", "")
     handle = product.get("handle", "")
@@ -37,19 +37,25 @@ def run_heuristic_analysis(product: dict) -> list:
     keyword_score = 0
     if title:
         title_lower = title.lower()
-        words_to_check = []
-        if product_type:
-            words_to_check.extend(product_type.lower().split())
-        if tags:
-            if isinstance(tags, str):
-                words_to_check.extend([t.strip().lower() for t in tags.split(",")])
-            elif isinstance(tags, list):
-                words_to_check.extend([t.lower() for t in tags])
-        # If any word from tags or product type is in the title, score 5. Otherwise 3 as a baseline if title exists.
-        if any(w in title_lower for w in words_to_check if len(w) > 3):
-            keyword_score = 5
+        if target_keyword:
+            if target_keyword.lower() in title_lower:
+                keyword_score = 5
+            else:
+                keyword_score = 0
         else:
-            keyword_score = 3 if title else 0
+            words_to_check = []
+            if product_type:
+                words_to_check.extend(product_type.lower().split())
+            if tags:
+                if isinstance(tags, str):
+                    words_to_check.extend([t.strip().lower() for t in tags.split(",")])
+                elif isinstance(tags, list):
+                    words_to_check.extend([t.lower() for t in tags])
+            # If any word from tags or product type is in the title, score 5. Otherwise 3 as a baseline if title exists.
+            if any(w in title_lower for w in words_to_check if len(w) > 3):
+                keyword_score = 5
+            else:
+                keyword_score = 3 if title else 0
             
     # 2. Does the handle contain the product name? (out of 10)
     handle_score = 0
@@ -160,7 +166,7 @@ def run_heuristic_analysis(product: dict) -> list:
         }
     ]
 
-def analyze_product_seo(product: dict, user_api_key: str = None) -> list:
+def analyze_product_seo(product: dict, user_api_key: str = None, target_keyword: str = None) -> list:
     """
     Analyzes product information for SEO quality.
     Uses Groq llama3-70b-8192 for deep analysis if API key is provided/env is configured.
@@ -168,7 +174,7 @@ def analyze_product_seo(product: dict, user_api_key: str = None) -> list:
     """
     api_key = user_api_key or GROQ_API_KEY
     if not api_key:
-        return run_heuristic_analysis(product)
+        return run_heuristic_analysis(product, target_keyword)
 
     title = product.get("title", "")
     handle = product.get("handle", "")
@@ -220,11 +226,12 @@ def analyze_product_seo(product: dict, user_api_key: str = None) -> list:
     - Meta Description Length: {meta_description_length}
     - Links in description: {json.dumps(links)}
     - Custom Metafields: {json.dumps(custom_metafields)}
+    - Target SEO Keyword: "{target_keyword or '(Not specified)'}"
 
     Instructions:
     - You will be forwarded a Shopify Product's information as an input. You need to perform some checks so that you can eventually assign an SEO score to that particular product.
     - The checks that you need to perform are as follows:
-    * Check if keyword is present in the title.
+    * Check if the target SEO keyword is present in the title. If no target keyword is specified, fall back to checking if the product type or major tags/product name keywords exist in the title.
         - Provide a score for this factor out of 5.
     * Does the handle contain the product name?
         - Provide a score for this factor out of 10.
@@ -333,6 +340,6 @@ def analyze_product_seo(product: dict, user_api_key: str = None) -> list:
         
     except Exception as e:
         # Fall back gracefully on Groq error
-        result = run_heuristic_analysis(product)
+        result = run_heuristic_analysis(product, target_keyword)
         result[0]["agent_reasoning"] = f"Heuristic analysis applied because Groq API call failed: {str(e)}"
         return result

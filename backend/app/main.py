@@ -205,6 +205,7 @@ async def get_product_detail(
 @app.post("/api/products/{product_id}/analyze")
 async def analyze_product(
     product_id: int,
+    target_keyword: Optional[str] = None,
     shopify_shop_url: Optional[str] = Header(None),
     shopify_access_token: Optional[str] = Header(None)
 ):
@@ -218,7 +219,7 @@ async def analyze_product(
     product = await get_product_detail(product_id, shopify_shop_url, shopify_access_token)
     
     # Run agent analysis (uses config-based GROQ_API_KEY)
-    audit_report = analyze_product_seo(product, GROQ_API_KEY)
+    audit_report = analyze_product_seo(product, GROQ_API_KEY, target_keyword)
     AUDIT_REPORTS[product_id] = audit_report
     save_db(AUDIT_REPORTS, OPTIMIZED_DATA)
     
@@ -227,6 +228,7 @@ async def analyze_product(
 @app.post("/api/products/{product_id}/optimize")
 async def optimize_product(
     product_id: int,
+    target_keyword: Optional[str] = None,
     shopify_shop_url: Optional[str] = Header(None),
     shopify_access_token: Optional[str] = Header(None)
 ):
@@ -242,12 +244,12 @@ async def optimize_product(
     # Get audit report or run analysis on the fly
     audit_report = AUDIT_REPORTS.get(product_id)
     if not audit_report:
-        audit_report = analyze_product_seo(product, GROQ_API_KEY)
+        audit_report = analyze_product_seo(product, GROQ_API_KEY, target_keyword)
         AUDIT_REPORTS[product_id] = audit_report
         
     # Run optimizer agent
     audit_report_dict = audit_report[0] if isinstance(audit_report, list) and len(audit_report) > 0 else audit_report
-    optimized_data = optimize_product_seo(product, audit_report_dict, GROQ_API_KEY)
+    optimized_data = optimize_product_seo(product, audit_report_dict, GROQ_API_KEY, target_keyword)
     OPTIMIZED_DATA[product_id] = optimized_data
     save_db(AUDIT_REPORTS, OPTIMIZED_DATA)
     

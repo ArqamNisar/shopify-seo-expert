@@ -37,6 +37,7 @@ export default function App() {
   // Terminal & Toasts
   const [logs, setLogs] = useState([]);
   const [toast, setToast] = useState(null);
+  const [targetKeyword, setTargetKeyword] = useState('');
 
   // Initialize theme and load session from local storage
   useEffect(() => {
@@ -205,16 +206,18 @@ export default function App() {
     }
   };
 
-  const runSeoAudit = async () => {
+  const runSeoAudit = async (keyword = targetKeyword) => {
     if (!selectedProduct) return;
     setIsAuditing(true);
-    addLogMessage(`[Analyzer Agent] Initiating product SEO analysis for: "${selectedProduct.title}"`, 'agent');
+    addLogMessage(`[Analyzer Agent] Initiating product SEO analysis for: "${selectedProduct.title}"${keyword ? ` (Target Keyword: "${keyword}")` : ''}`, 'agent');
     addLogMessage('[Analyzer Agent] Evaluating Title structure and lengths...', 'agent');
     addLogMessage('[Analyzer Agent] Parsing description formatting and content body...', 'agent');
     addLogMessage('[Analyzer Agent] Retrieving product image alt tags...', 'agent');
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/products/${selectedProduct.id}/analyze`, {
+      const url = `http://127.0.0.1:8000/api/products/${selectedProduct.id}/analyze` + 
+        (keyword ? `?target_keyword=${encodeURIComponent(keyword)}` : '');
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Shopify-Shop-Url': shopifyUrl,
@@ -239,16 +242,18 @@ export default function App() {
     }
   };
 
-  const runSeoOptimize = async () => {
+  const runSeoOptimize = async (keyword = targetKeyword) => {
     if (!selectedProduct) return;
     setIsOptimizing(true);
-    addLogMessage(`[Optimizer Agent] Commencing copywriting suggestions for: "${selectedProduct.title}"`, 'agent');
+    addLogMessage(`[Optimizer Agent] Commencing copywriting suggestions for: "${selectedProduct.title}"${keyword ? ` (Target Keyword: "${keyword}")` : ''}`, 'agent');
     addLogMessage('[Optimizer Agent] Rewriting title according to character boundaries...', 'agent');
     addLogMessage('[Optimizer Agent] Generating SEO-optimized, styled HTML description...', 'agent');
     addLogMessage('[Optimizer Agent] Structuring meta tags and resolving empty media tags...', 'agent');
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/products/${selectedProduct.id}/optimize`, {
+      const url = `http://127.0.0.1:8000/api/products/${selectedProduct.id}/optimize` + 
+        (keyword ? `?target_keyword=${encodeURIComponent(keyword)}` : '');
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Shopify-Shop-Url': shopifyUrl,
@@ -583,12 +588,15 @@ export default function App() {
             product={selectedProduct}
             auditReport={scores[selectedProduct.id]}
             shopifyUrl={shopifyUrl}
+            targetKeyword={targetKeyword}
+            onTargetKeywordChange={setTargetKeyword}
             onRunAudit={runSeoAudit}
             isAuditing={isAuditing}
             onStartOptimize={() => setActiveTab('optimize')}
             onBack={() => {
               setActiveTab('dashboard');
               setSelectedProduct(null);
+              setTargetKeyword('');
             }}
           />
         )}
@@ -598,6 +606,8 @@ export default function App() {
             product={selectedProduct}
             optimizationData={optimizations[selectedProduct.id]}
             shopifyUrl={shopifyUrl}
+            targetKeyword={targetKeyword}
+            onTargetKeywordChange={setTargetKeyword}
             isOptimizing={isOptimizing}
             onRunOptimize={runSeoOptimize}
             onSync={syncToShopify}
@@ -605,6 +615,7 @@ export default function App() {
             onBack={() => {
               setActiveTab('dashboard');
               setSelectedProduct(null);
+              setTargetKeyword('');
             }}
           />
         )}
