@@ -132,6 +132,9 @@ export default function OptimizerPanel({
   const [editedDescription, setEditedDescription] = useState('');
   const [editedTags, setEditedTags] = useState('');
   const [editedImages, setEditedImages] = useState([]);
+  const [editedMetaTitle, setEditedMetaTitle] = useState('');
+  const [editedMetaDescription, setEditedMetaDescription] = useState('');
+  const [editedProductType, setEditedProductType] = useState('');
   const [viewMode, setViewMode] = useState('editor'); // 'editor' | 'diff'
 
   // Load optimization recommendations into state when they arrive
@@ -140,6 +143,9 @@ export default function OptimizerPanel({
       setEditedTitle(optimizationData.optimized_title || '');
       setEditedDescription(optimizationData.optimized_description || '');
       setEditedTags(optimizationData.optimized_tags || '');
+      setEditedMetaTitle(optimizationData.optimized_meta_title || '');
+      setEditedMetaDescription(optimizationData.optimized_meta_description || '');
+      setEditedProductType(optimizationData.optimized_product_type || '');
       setEditedImages(
         optimizationData.optimized_images
           ? JSON.parse(JSON.stringify(optimizationData.optimized_images)) // Deep copy
@@ -160,7 +166,10 @@ export default function OptimizerPanel({
       title: editedTitle,
       description: editedDescription,
       tags: editedTags,
-      images: editedImages
+      images: editedImages,
+      meta_title: editedMetaTitle,
+      meta_description: editedMetaDescription,
+      product_type: editedProductType
     });
   };
 
@@ -179,6 +188,8 @@ export default function OptimizerPanel({
 
   const originalMetaTitle = getMetafieldValue('global', 'title_tag') || product.title || '';
   const originalMetaDescription = getMetafieldValue('global', 'description_tag') || stripHtml(product.body_html || product.description || '');
+  const originalMetaTitleVal = getMetafieldValue('global', 'title_tag') || '';
+  const originalMetaDescriptionVal = getMetafieldValue('global', 'description_tag') || '';
 
   const cleanDescriptionHTML = (html) => {
     if (!html) return '(No description)';
@@ -295,6 +306,53 @@ export default function OptimizerPanel({
 
                 <div className="editor-field">
                   <div className="editor-field-header">
+                    <span>Product Type</span>
+                  </div>
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0' }}>
+                      <DiffRenderer oldText={product.product_type || ''} newText={editedProductType} pane="left" />
+                    </div>
+                  ) : (
+                    <div className="editor-text" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                      {product.product_type || '(None)'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="editor-field">
+                  <div className="editor-field-header">
+                    <span>Meta Title (global.title_tag)</span>
+                    <span>{originalMetaTitleVal.length} chars</span>
+                  </div>
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0' }}>
+                      <DiffRenderer oldText={originalMetaTitleVal} newText={editedMetaTitle} pane="left" />
+                    </div>
+                  ) : (
+                    <div className="editor-text" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                      {originalMetaTitleVal || '(None)'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="editor-field">
+                  <div className="editor-field-header">
+                    <span>Meta Description (global.description_tag)</span>
+                    <span>{originalMetaDescriptionVal.length} chars</span>
+                  </div>
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0' }}>
+                      <DiffRenderer oldText={originalMetaDescriptionVal} newText={editedMetaDescription} pane="left" />
+                    </div>
+                  ) : (
+                    <div className="editor-text" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                      {originalMetaDescriptionVal || '(None)'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="editor-field">
+                  <div className="editor-field-header">
                     <span>Description (Clean text)</span>
                     <span>{cleanDescriptionHTML(product.body_html || product.description).split(/\s+/).filter(Boolean).length} words</span>
                   </div>
@@ -368,8 +426,8 @@ export default function OptimizerPanel({
               </h3>
 
               <SerpPreview 
-                title={editedTitle} 
-                description={stripHtml(editedDescription)} 
+                title={editedMetaTitle || editedTitle} 
+                description={editedMetaDescription || stripHtml(editedDescription)} 
                 shopifyUrl={shopifyUrl} 
                 handle={product.handle} 
               />
@@ -396,6 +454,72 @@ export default function OptimizerPanel({
                       style={{ fontWeight: 600 }}
                       value={editedTitle}
                       onChange={(e) => setEditedTitle(e.target.value)}
+                    />
+                  )}
+                </div>
+
+                {/* Product Type */}
+                <div className="editor-field">
+                  <div className="editor-field-header">
+                    <label htmlFor="opt-product-type" style={{ cursor: 'pointer' }}>Optimized Product Type</label>
+                  </div>
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0' }}>
+                      <DiffRenderer oldText={product.product_type || ''} newText={editedProductType} pane="right" />
+                    </div>
+                  ) : (
+                    <input
+                      id="opt-product-type"
+                      type="text"
+                      className="editor-input"
+                      value={editedProductType}
+                      onChange={(e) => setEditedProductType(e.target.value)}
+                    />
+                  )}
+                </div>
+
+                {/* Meta Title */}
+                <div className="editor-field" style={{ borderColor: (editedMetaTitle.length >= 30 && editedMetaTitle.length <= 60) ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-color)' }}>
+                  <div className="editor-field-header">
+                    <label htmlFor="opt-meta-title" style={{ cursor: 'pointer' }}>Optimized Meta Title</label>
+                    <span style={{ color: (editedMetaTitle.length >= 30 && editedMetaTitle.length <= 60) ? 'var(--seo-green)' : 'var(--seo-orange)' }}>
+                      {editedMetaTitle.length} chars (Sweet spot: 30-60)
+                    </span>
+                  </div>
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0' }}>
+                      <DiffRenderer oldText={originalMetaTitleVal} newText={editedMetaTitle} pane="right" />
+                    </div>
+                  ) : (
+                    <input
+                      id="opt-meta-title"
+                      type="text"
+                      className="editor-input"
+                      value={editedMetaTitle}
+                      onChange={(e) => setEditedMetaTitle(e.target.value)}
+                    />
+                  )}
+                </div>
+
+                {/* Meta Description */}
+                <div className="editor-field" style={{ borderColor: (editedMetaDescription.length >= 120 && editedMetaDescription.length <= 190) ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-color)' }}>
+                  <div className="editor-field-header">
+                    <label htmlFor="opt-meta-desc" style={{ cursor: 'pointer' }}>Optimized Meta Description</label>
+                    <span style={{ color: (editedMetaDescription.length >= 120 && editedMetaDescription.length <= 190) ? 'var(--seo-green)' : 'var(--seo-orange)' }}>
+                      {editedMetaDescription.length} chars (Sweet spot: 120-190)
+                    </span>
+                  </div>
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0' }}>
+                      <DiffRenderer oldText={originalMetaDescriptionVal} newText={editedMetaDescription} pane="right" />
+                    </div>
+                  ) : (
+                    <textarea
+                      id="opt-meta-desc"
+                      className="editor-textarea"
+                      style={{ minHeight: '80px' }}
+                      value={editedMetaDescription}
+                      onChange={(e) => setEditedMetaDescription(e.target.value)}
                     />
                   )}
                 </div>

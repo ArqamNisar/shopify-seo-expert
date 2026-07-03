@@ -63,6 +63,9 @@ class SyncPayload(BaseModel):
     description: str
     tags: str
     images: List[Dict]
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
+    product_type: Optional[str] = None
 
 def get_shopify_headers(access_token: str) -> dict:
     return {
@@ -268,7 +271,7 @@ async def sync_optimized_product(
     
     try:
         async with httpx.AsyncClient() as client:
-            # 1. Update title, description (body_html), and tags
+            # 1. Update title, description (body_html), tags, product_type, and meta fields
             update_body = {
                 "product": {
                     "id": product_id,
@@ -277,6 +280,26 @@ async def sync_optimized_product(
                     "tags": payload.tags
                 }
             }
+            if payload.product_type is not None:
+                update_body["product"]["product_type"] = payload.product_type
+
+            metafields = []
+            if payload.meta_title:
+                metafields.append({
+                    "namespace": "global",
+                    "key": "title_tag",
+                    "value": payload.meta_title,
+                    "type": "single_line_text_field"
+                })
+            if payload.meta_description:
+                metafields.append({
+                    "namespace": "global",
+                    "key": "description_tag",
+                    "value": payload.meta_description,
+                    "type": "multi_line_text_field"
+                })
+            if metafields:
+                update_body["product"]["metafields"] = metafields
             prod_response = await client.put(
                 f"https://{shop_url}/admin/api/2024-04/products/{product_id}.json",
                 headers=headers,
