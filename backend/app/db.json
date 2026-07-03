@@ -10,13 +10,13 @@
             "product_name_in_handle": 8
           },
           {
-            "meta_title_set": 0
+            "meta_title_set": 10
           },
           {
             "product_type_relevant": 5
           },
           {
-            "meta_title_length": 0
+            "meta_title_length": 10
           },
           {
             "content_quality": 8
@@ -46,9 +46,60 @@
             "metafields": 5
           }
         ],
-        "seo_score": 74,
-        "product_name": "Arduino Electronics Breadboard for DIY Projects",
-        "agent_reasoning": "The product has a well-structured title and handle, and the product type is relevant. The meta description is set and within the recommended length. The content quality is good, with relevant and sufficient information. However, the meta title is not set, which negatively affects the SEO score. The product has multiple images with proper alt text, and there are relevant tags. The status is active, and custom metafields are present. Overall, the product has a good SEO foundation, but improving the meta title would further enhance its visibility."
+        "seo_score": 94,
+        "product_name": "Arduino Electronics Breadboard for DIY Projects & Prototyping",
+        "agent_reasoning": "Overall, the product has a well-structured title, handle, and meta title, with relevant keywords and product type. The meta description is also well-written and within the recommended length. The content is of good quality and has internal links. There are multiple images with proper alt text, and the product has relevant tags and custom metafields. However, there is room for improvement in terms of content length and meta description length to achieve a perfect score."
+      }
+    ],
+    "7643226570886": [
+      {
+        "checks": [
+          {
+            "keyword_in_title": 5
+          },
+          {
+            "product_name_in_handle": 10
+          },
+          {
+            "meta_title_set": 10
+          },
+          {
+            "product_type_relevant": 5
+          },
+          {
+            "meta_title_length": 10
+          },
+          {
+            "content_quality": 8
+          },
+          {
+            "meta_description_set": 10
+          },
+          {
+            "meta_description_length": 8
+          },
+          {
+            "internal_links": 5
+          },
+          {
+            "image_count": 0
+          },
+          {
+            "alt_text": 5
+          },
+          {
+            "relevant_tags": 5
+          },
+          {
+            "status_active": 5
+          },
+          {
+            "metafields": 5
+          }
+        ],
+        "seo_score": 91,
+        "product_name": "Arduino Uno Starter Kit - Electronics and Home",
+        "agent_reasoning": "The product information provided has a well-structured title that includes the product name and relevant keywords, a proper handle, and well-set meta title and description. However, the product description is slightly below the recommended length for optimal content quality, and there is only one image, which reduces the overall SEO score. Nevertheless, the presence of internal links, relevant tags, and custom metafields contribute positively to the final score."
       }
     ]
   },

@@ -160,46 +160,65 @@ def optimize_product_seo(product: dict, audit_report: dict, user_api_key: str = 
         })
 
     prompt = f"""
-    You are an expert Shopify SEO Copywriter and Optimizer Agent. Optimize this product's SEO fields.
+    You are an expert Shopify SEO Copywriter and Optimizer Agent. Your job is to optimize ALL of this product's SEO fields to achieve a PERFECT audit score.
     
-    Here is the Product Information:
+    === PRODUCT INFORMATION ===
     - Original Title: "{title}"
-    - Original Description (Raw Text): "{clean_desc}"
+    - Original Description (Raw Text): "{clean_desc[:1000]}"
     - Original Tags: "{tags}"
-    - Original Product Type: "{product.get("product_type") or '(Not specified)'}"
-    - Original Meta Title (global.title_tag): "{get_metafield_value(product, 'global', 'title_tag') or ''}"
-    - Original Meta Description (global.description_tag): "{get_metafield_value(product, 'global', 'description_tag') or ''}"
-    - Original Images: {json.dumps(image_details)}
+    - Original Product Type: "{product.get("product_type") or '(EMPTY - you MUST set one)'}"
+    - Original Meta Title (global.title_tag): "{get_metafield_value(product, 'global', 'title_tag') or '(EMPTY - you MUST write one)'}"
+    - Original Meta Description (global.description_tag): "{get_metafield_value(product, 'global', 'description_tag') or '(EMPTY - you MUST write one)'}"
+    - Images: {json.dumps(image_details)}
     - Target SEO Keyword: "{target_keyword or '(Not specified)'}"
     
-    Here is the SEO Audit Report containing issues:
+    === AUDIT REPORT (issues to fix) ===
     {json.dumps(audit_report)}
 
-    Task Instructions:
-    1. Optimized Title: Write a product title between 50-60 characters. Place primary keywords first (if target keyword is specified, prioritize it!). It must sound natural and drive clicks.
-    2. Optimized Description: Write an engaging, HTML-structured description (using standard HTML formatting like <p>, <h3>, <ul>, <li>). The description MUST exceed 300 words (aim for 310-330 words) to meet the SEO search density check. Describe features, benefits, and address customer intent (make sure to integrate the target keyword naturally at least 2-3 times if specified!). Additionally, you MUST embed at least one storefront internal hyperlink (e.g., `<a href="/collections/all">explore our collections</a>` or `<a href="/collections/best-sellers">best sellers</a>`) naturally inside the HTML description body to pass the internal linking audit check.
-    3. Optimized Tags: Expand tags list to 6-10 keywords separated by commas (include the target keyword in tags if specified!).
-    4. Optimized Image Alt Texts: Provide a descriptive, keyword-rich, and natural alt text for each image. Make each alt text unique and match the image position. Do not leave any image alt text blank.
-    5. Optimized Meta Title (global.title_tag): Write an SEO meta title between 50-60 characters. It should highlight the product value proposition and include target keywords.
-    6. Optimized Meta Description (global.description_tag): Write an engaging, keyword-rich SEO meta description between 120-190 characters. Avoid raw HTML here; write plain text only.
-    7. Optimized Product Type: Categorize the product into a clean standard Shopify category type (e.g., "Electronics Components", "Industrial Motors", etc.) based on the title and target keyword.
+    === MANDATORY REQUIREMENTS ===
+    You MUST generate ALL 7 fields below. Every field is REQUIRED. Do NOT skip or leave any field empty.
 
-    Return a JSON object exactly matching this schema:
+    1. **optimized_title** — Product title, 50-60 characters. Front-load primary keywords. Natural, click-driving copy.
+    
+    2. **optimized_description** — HTML-structured body description using <p>, <h3>, <ul>, <li> tags.
+       - MUST be 300+ words (aim for 310-330).
+       - MUST include at least one internal link: `<a href="/collections/all">browse our full collection</a>`.
+       - If target keyword specified, weave it in naturally 2-3 times.
+    
+    3. **optimized_tags** — 6-10 comma-separated keyword tags. Include target keyword if specified.
+    
+    4. **optimized_images** — Array of image objects. Every image MUST have a non-empty, descriptive, keyword-rich alt text. Use product name and angle/perspective in each alt.
+    
+    5. **optimized_meta_title** — THIS IS CRITICAL AND REQUIRED. This is the Shopify `global.title_tag` metafield.
+       - Write a compelling SEO meta title between 50-60 characters.
+       - It should be DIFFERENT from optimized_title (more search-focused).
+       - Example format: "Buy [Product] Online | [Benefit] | [Store/Category]"
+       - DO NOT leave this empty. DO NOT copy the product title verbatim.
+    
+    6. **optimized_meta_description** — THIS IS CRITICAL AND REQUIRED. This is the Shopify `global.description_tag` metafield.
+       - Write plain text (NO HTML), 120-190 characters.
+       - Include a call-to-action and the target keyword.
+       - DO NOT leave this empty.
+    
+    7. **optimized_product_type** — A clean Shopify product category (e.g., "Electronics Components", "Industrial Motors", "Sensors & Modules"). DO NOT leave empty.
+
+    === OUTPUT FORMAT ===
+    Return ONLY a valid JSON object with this EXACT schema. Every key MUST have a non-empty string value:
     {{
-        "optimized_title": "<string: optimized title>",
-        "optimized_description": "<string: HTML-formatted optimized description>",
-        "optimized_tags": "<string: comma-separated tags>",
-        "optimized_meta_title": "<string: SEO meta title>",
-        "optimized_meta_description": "<string: SEO meta description>",
-        "optimized_product_type": "<string: optimized product type>",
+        "optimized_title": "<string>",
+        "optimized_description": "<string>",
+        "optimized_tags": "<string>",
+        "optimized_meta_title": "<string: 50-60 chars, REQUIRED, NOT EMPTY>",
+        "optimized_meta_description": "<string: 120-190 chars, REQUIRED, NOT EMPTY>",
+        "optimized_product_type": "<string: REQUIRED, NOT EMPTY>",
         "optimized_images": [
             {{
                 "id": <id of image>,
                 "src": "<string: src URL>",
-                "alt": "<string: custom optimized alt text>"
+                "alt": "<string: descriptive alt text, REQUIRED, NOT EMPTY>"
             }}
         ],
-        "agent_reasoning": "<string: explanation of your optimization decisions (e.g. keywords targeted, title format, and description copywriting choices)>"
+        "agent_reasoning": "<string: explanation of optimization decisions>"
     }}
     """
 
@@ -209,7 +228,7 @@ def optimize_product_seo(product: dict, audit_report: dict, user_api_key: str = 
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a specialized JSON-outputting Shopify SEO copywriter. Always output strictly valid JSON content representing the optimization."
+                    "content": "You are a specialized JSON-outputting Shopify SEO copywriter. You MUST output strictly valid JSON with ALL required fields populated. Never omit or leave empty the optimized_meta_title, optimized_meta_description, or optimized_product_type fields."
                 },
                 {
                     "role": "user",
@@ -221,10 +240,57 @@ def optimize_product_seo(product: dict, audit_report: dict, user_api_key: str = 
         )
         
         result_str = chat_completion.choices[0].message.content
-        return json.loads(result_str)
+        result = json.loads(result_str)
+
+        # --- Post-processing: guarantee all critical fields are populated ---
+        
+        # Meta Title fallback
+        if not result.get("optimized_meta_title") or len(result["optimized_meta_title"].strip()) < 5:
+            opt_t = result.get("optimized_title", title)
+            if len(opt_t) >= 50 and len(opt_t) <= 60:
+                result["optimized_meta_title"] = opt_t
+            else:
+                fallback = f"Buy {title.strip().title()} Online - Premium Quality"
+                result["optimized_meta_title"] = fallback[:60] if len(fallback) > 60 else fallback
+                if len(result["optimized_meta_title"]) < 50:
+                    result["optimized_meta_title"] = result["optimized_meta_title"] + " | Shop Now"
+        
+        # Meta Description fallback
+        if not result.get("optimized_meta_description") or len(result["optimized_meta_description"].strip()) < 20:
+            desc_plain = re.sub('<[^<]+?>', '', result.get("optimized_description", clean_desc))[:140].strip()
+            result["optimized_meta_description"] = f"{desc_plain} Shop premium quality products with fast shipping and dedicated support."
+            if len(result["optimized_meta_description"]) > 190:
+                result["optimized_meta_description"] = result["optimized_meta_description"][:187] + "..."
+        
+        # Product Type fallback
+        if not result.get("optimized_product_type") or len(result["optimized_product_type"].strip()) < 2:
+            existing = product.get("product_type", "")
+            if existing and existing.strip():
+                result["optimized_product_type"] = existing.strip()
+            else:
+                title_lower = title.lower()
+                if "motor" in title_lower or "servo" in title_lower:
+                    result["optimized_product_type"] = "Industrial Motors"
+                elif "sensor" in title_lower or "board" in title_lower or "breadboard" in title_lower:
+                    result["optimized_product_type"] = "Electronics Components"
+                elif "cable" in title_lower or "adapter" in title_lower:
+                    result["optimized_product_type"] = "Electrical Supplies"
+                else:
+                    result["optimized_product_type"] = "Industrial Equipment"
+
+        # Image alt text fallback
+        opt_images = result.get("optimized_images", [])
+        opt_title_for_alt = result.get("optimized_title", title)
+        for idx, img in enumerate(opt_images):
+            if not img.get("alt") or len(img["alt"].strip()) < 3:
+                img["alt"] = f"{opt_title_for_alt} - product view {idx + 1}" if idx > 0 else f"{opt_title_for_alt} - main product image"
+        result["optimized_images"] = opt_images
+
+        return result
         
     except Exception as e:
         # Fall back gracefully on Groq error
         result = run_heuristic_optimization(product, audit_report, target_keyword)
         result["agent_reasoning"] = f"Heuristic optimization applied because Groq API call failed: {str(e)}"
         return result
+
