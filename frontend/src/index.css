@@ -1442,3 +1442,75 @@ body.dark-theme .serp-preview-container.mobile {
 .serp-preview-container.mobile .serp-title {
   font-size: 1.1rem;
 }
+
+/* Visual Diff View Highlights */
+.diff-added {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--seo-green);
+  font-weight: 600;
+  border-bottom: 1px dashed rgba(16, 185, 129, 0.4);
+  padding: 0.05rem 0.15rem;
+  border-radius: 2px;
+}
+
+body.dark-theme .diff-added {
+  background-color: rgba(16, 185, 129, 0.22);
+}
+
+.diff-removed {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: var(--seo-red);
+  text-decoration: line-through;
+  border-bottom: 1px dashed rgba(239, 68, 68, 0.3);
+  padding: 0.05rem 0.15rem;
+  border-radius: 2px;
+}
+
+body.dark-theme .diff-removed {
+  background-color: rgba(239, 68, 68, 0.18);
+}
+
+/* View Mode Toggles segment controller */
+.view-mode-tabs {
+  display: flex;
+  background: var(--bg-tertiary);
+  padding: 0.25rem;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-color);
+  gap: 0.25rem;
+}
+
+.view-mode-tab {
+  background: transparent;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.view-mode-tab:hover {
+  color: var(--text-primary);
+}
+
+.view-mode-tab.active {
+  background: var(--bg-primary);
+  color: var(--accent-purple);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+body.dark-theme .view-mode-tab.active {
+  color: var(--accent-cyan);
+}
+
+/* Diff output typography container */
+.diff-view-box {
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.95rem;
+  font-family: inherit;
+}

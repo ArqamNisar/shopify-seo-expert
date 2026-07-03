@@ -47,6 +47,75 @@ function SerpPreview({ title, description, shopifyUrl = '', handle = '' }) {
   );
 }
 
+function diffWords(oldStr, newStr) {
+  if (!oldStr) oldStr = '';
+  if (!newStr) newStr = '';
+  
+  const oldWords = oldStr.split(/(\s+)/);
+  const newWords = newStr.split(/(\s+)/);
+  
+  const dp = Array(oldWords.length + 1).fill(null).map(() => Array(newWords.length + 1).fill(0));
+  
+  for (let i = 1; i <= oldWords.length; i++) {
+    for (let j = 1; j <= newWords.length; j++) {
+      if (oldWords[i-1] === newWords[j-1]) {
+        dp[i][j] = dp[i-1][j-1] + 1;
+      } else {
+        dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+      }
+    }
+  }
+  
+  const result = [];
+  let i = oldWords.length;
+  let j = newWords.length;
+  
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldWords[i-1] === newWords[j-1]) {
+      result.unshift({ type: 'equal', value: oldWords[i-1] });
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+      result.unshift({ type: 'added', value: newWords[j-1] });
+      j--;
+    } else {
+      result.unshift({ type: 'removed', value: oldWords[i-1] });
+      i--;
+    }
+  }
+  
+  return result;
+}
+
+function DiffRenderer({ oldText, newText, pane }) {
+  const diffs = diffWords(oldText, newText);
+  
+  return (
+    <div className="diff-view-box">
+      {diffs.map((part, index) => {
+        if (part.type === 'removed' && pane === 'left') {
+          return (
+            <span key={index} className="diff-removed">
+              {part.value}
+            </span>
+          );
+        }
+        if (part.type === 'added' && pane === 'right') {
+          return (
+            <span key={index} className="diff-added">
+              {part.value}
+            </span>
+          );
+        }
+        if (part.type === 'equal') {
+          return <span key={index}>{part.value}</span>;
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+
 export default function OptimizerPanel({
   product,
   optimizationData,
@@ -63,6 +132,7 @@ export default function OptimizerPanel({
   const [editedDescription, setEditedDescription] = useState('');
   const [editedTags, setEditedTags] = useState('');
   const [editedImages, setEditedImages] = useState([]);
+  const [viewMode, setViewMode] = useState('editor'); // 'editor' | 'diff'
 
   // Load optimization recommendations into state when they arrive
   useEffect(() => {
@@ -118,9 +188,31 @@ export default function OptimizerPanel({
   return (
     <div>
       <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-        <button className="btn btn-secondary" onClick={onBack}>
-          ⬅ Back to Catalog
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button className="btn btn-secondary" onClick={onBack}>
+            ⬅ Back to Catalog
+          </button>
+          
+          {optimizationData && (
+            <div className="view-mode-tabs">
+              <button
+                type="button"
+                className={`view-mode-tab ${viewMode === 'editor' ? 'active' : ''}`}
+                onClick={() => setViewMode('editor')}
+              >
+                ✏️ Standard Editor
+              </button>
+              <button
+                type="button"
+                className={`view-mode-tab ${viewMode === 'diff' ? 'active' : ''}`}
+                onClick={() => setViewMode('diff')}
+              >
+                👁️ Visual Diff View
+              </button>
+            </div>
+          )}
+        </div>
+        
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.25rem 0.75rem', borderRadius: 'var(--border-radius-sm)', border: '1px solid var(--border-color)' }}>
             <label htmlFor="opt-keyword" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Target Keyword:</label>
@@ -192,7 +284,13 @@ export default function OptimizerPanel({
                     <span>Title</span>
                     <span>{product.title?.length || 0} chars</span>
                   </div>
-                  <div className="editor-text" style={{ fontWeight: 600 }}>{product.title}</div>
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0', fontWeight: 600 }}>
+                      <DiffRenderer oldText={product.title} newText={editedTitle} pane="left" />
+                    </div>
+                  ) : (
+                    <div className="editor-text" style={{ fontWeight: 600 }}>{product.title}</div>
+                  )}
                 </div>
 
                 <div className="editor-field">
@@ -200,18 +298,34 @@ export default function OptimizerPanel({
                     <span>Description (Clean text)</span>
                     <span>{cleanDescriptionHTML(product.body_html || product.description).split(/\s+/).filter(Boolean).length} words</span>
                   </div>
-                  <div className="editor-text" style={{ maxHeight: '180px', overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                    {cleanDescriptionHTML(product.body_html || product.description)}
-                  </div>
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ maxHeight: '180px', overflowY: 'auto', padding: '0.5rem 0' }}>
+                      <DiffRenderer 
+                        oldText={cleanDescriptionHTML(product.body_html || product.description)} 
+                        newText={cleanDescriptionHTML(editedDescription)} 
+                        pane="left" 
+                      />
+                    </div>
+                  ) : (
+                    <div className="editor-text" style={{ maxHeight: '180px', overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                      {cleanDescriptionHTML(product.body_html || product.description)}
+                    </div>
+                  )}
                 </div>
 
                 <div className="editor-field">
                   <div className="editor-field-header">
                     <span>Tags</span>
                   </div>
-                  <div className="editor-text" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                    {product.tags || '(None)'}
-                  </div>
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0' }}>
+                      <DiffRenderer oldText={product.tags} newText={editedTags} pane="left" />
+                    </div>
+                  ) : (
+                    <div className="editor-text" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                      {product.tags || '(None)'}
+                    </div>
+                  )}
                 </div>
 
                 <div className="editor-field">
@@ -219,15 +333,24 @@ export default function OptimizerPanel({
                     <span>Image Alt Text Assets</span>
                   </div>
                   {product.images && product.images.length > 0 ? (
-                    product.images.map((img, idx) => (
-                      <div key={img.id || idx} className="img-alt-editor">
-                        <img className="img-alt-thumb" src={img.src} alt="" />
-                        <div style={{ flex: 1, fontSize: '0.85rem' }}>
-                          <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase' }}>Alt Tag {idx + 1}</span>
-                          <span style={{ wordBreak: 'break-all' }}>{img.alt || '(Empty Alt Tag)'}</span>
+                    product.images.map((img, idx) => {
+                      const optImg = editedImages.find(i => i.id === img.id) || {};
+                      return (
+                        <div key={img.id || idx} className="img-alt-editor">
+                          <img className="img-alt-thumb" src={img.src} alt="" />
+                          <div style={{ flex: 1, fontSize: '0.85rem' }}>
+                            <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase' }}>Alt Tag {idx + 1}</span>
+                            {viewMode === 'diff' ? (
+                              <div style={{ padding: '0.25rem 0' }}>
+                                <DiffRenderer oldText={img.alt || ''} newText={optImg.alt || ''} pane="left" />
+                              </div>
+                            ) : (
+                              <span style={{ wordBreak: 'break-all' }}>{img.alt || '(Empty Alt Tag)'}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No product images.</div>
                   )}
@@ -261,14 +384,20 @@ export default function OptimizerPanel({
                       {editedTitle.length} chars (Sweet spot: 50-60)
                     </span>
                   </div>
-                  <input
-                    id="opt-title"
-                    type="text"
-                    className="editor-input"
-                    style={{ fontWeight: 600 }}
-                    value={editedTitle}
-                    onChange={(e) => setEditedTitle(e.target.value)}
-                  />
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0', fontWeight: 600 }}>
+                      <DiffRenderer oldText={product.title} newText={editedTitle} pane="right" />
+                    </div>
+                  ) : (
+                    <input
+                      id="opt-title"
+                      type="text"
+                      className="editor-input"
+                      style={{ fontWeight: 600 }}
+                      value={editedTitle}
+                      onChange={(e) => setEditedTitle(e.target.value)}
+                    />
+                  )}
                 </div>
 
                 {/* Description */}
@@ -277,12 +406,22 @@ export default function OptimizerPanel({
                     <label htmlFor="opt-desc" style={{ cursor: 'pointer' }}>Description (HTML Layout)</label>
                     <span>{editedDescription.split(/\s+/).filter(Boolean).length} words</span>
                   </div>
-                  <textarea
-                    id="opt-desc"
-                    className="editor-textarea"
-                    value={editedDescription}
-                    onChange={(e) => setEditedDescription(e.target.value)}
-                  />
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ maxHeight: '180px', overflowY: 'auto', padding: '0.5rem 0' }}>
+                      <DiffRenderer 
+                        oldText={cleanDescriptionHTML(product.body_html || product.description)} 
+                        newText={cleanDescriptionHTML(editedDescription)} 
+                        pane="right" 
+                      />
+                    </div>
+                  ) : (
+                    <textarea
+                      id="opt-desc"
+                      className="editor-textarea"
+                      value={editedDescription}
+                      onChange={(e) => setEditedDescription(e.target.value)}
+                    />
+                  )}
                 </div>
 
                 {/* Tags */}
@@ -291,13 +430,19 @@ export default function OptimizerPanel({
                     <label htmlFor="opt-tags" style={{ cursor: 'pointer' }}>Expanded Tags List</label>
                     <span>{editedTags.split(',').filter(Boolean).length} tags</span>
                   </div>
-                  <input
-                    id="opt-tags"
-                    type="text"
-                    className="editor-input"
-                    value={editedTags}
-                    onChange={(e) => setEditedTags(e.target.value)}
-                  />
+                  {viewMode === 'diff' ? (
+                    <div className="editor-text" style={{ padding: '0.5rem 0' }}>
+                      <DiffRenderer oldText={product.tags} newText={editedTags} pane="right" />
+                    </div>
+                  ) : (
+                    <input
+                      id="opt-tags"
+                      type="text"
+                      className="editor-input"
+                      value={editedTags}
+                      onChange={(e) => setEditedTags(e.target.value)}
+                    />
+                  )}
                 </div>
 
                 {/* Image Alts */}
@@ -306,24 +451,33 @@ export default function OptimizerPanel({
                     <span>Optimized Image Alt Texts</span>
                   </div>
                   {editedImages.length > 0 ? (
-                    editedImages.map((img, idx) => (
-                      <div key={img.id || idx} className="img-alt-editor">
-                        <img className="img-alt-thumb" src={img.src} alt="" />
-                        <div className="img-alt-input-wrapper">
-                          <label htmlFor={`alt-input-${img.id || idx}`} style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-                            Alt Tag {idx + 1}
-                          </label>
-                          <input
-                            id={`alt-input-${img.id || idx}`}
-                            type="text"
-                            className="editor-input"
-                            style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.25rem' }}
-                            value={img.alt || ''}
-                            onChange={(e) => handleAltChange(img.id, e.target.value)}
-                          />
+                    editedImages.map((img, idx) => {
+                      const origImg = product.images?.find(i => i.id === img.id) || {};
+                      return (
+                        <div key={img.id || idx} className="img-alt-editor">
+                          <img className="img-alt-thumb" src={img.src} alt="" />
+                          <div className="img-alt-input-wrapper">
+                            <label htmlFor={`alt-input-${img.id || idx}`} style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+                              Alt Tag {idx + 1}
+                            </label>
+                            {viewMode === 'diff' ? (
+                              <div style={{ padding: '0.25rem 0' }}>
+                                <DiffRenderer oldText={origImg.alt || ''} newText={img.alt || ''} pane="right" />
+                              </div>
+                            ) : (
+                              <input
+                                id={`alt-input-${img.id || idx}`}
+                                type="text"
+                                className="editor-input"
+                                style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.25rem' }}
+                                value={img.alt || ''}
+                                onChange={(e) => handleAltChange(img.id, e.target.value)}
+                              />
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No product images to optimize.</div>
                   )}
