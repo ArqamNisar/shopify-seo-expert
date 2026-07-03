@@ -484,6 +484,7 @@ export default function App() {
           <Dashboard
             products={products}
             scores={scores}
+            optimizations={optimizations}
             isLoading={isLoadingCatalog}
             onSelectProduct={handleSelectProduct}
           />

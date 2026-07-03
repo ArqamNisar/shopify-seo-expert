@@ -3,10 +3,14 @@ import React, { useState } from 'react';
 export default function Dashboard({
   products = [],
   scores = {},
+  optimizations = {},
   isLoading,
   onSelectProduct
 }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [auditFilter, setAuditFilter] = useState('ALL');
+  const [optimizeFilter, setOptimizeFilter] = useState('ALL');
 
   // Calculate KPIs
   const totalProducts = products.length;
@@ -26,10 +30,33 @@ export default function Dashboard({
     return 'score-low';
   };
 
-  const filteredProducts = products.filter(product =>
-    product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.tags?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Compile available statuses dynamically
+  const uniqueStatuses = ['ALL', ...new Set(products.map(p => p.status?.toUpperCase()).filter(Boolean))];
+
+  const filteredProducts = products.filter(product => {
+    // 1. Search filter
+    const matchesSearch = !searchTerm ||
+      product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.tags?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // 2. Status filter
+    const matchesStatus = statusFilter === 'ALL' ||
+      product.status?.toUpperCase() === statusFilter;
+
+    // 3. Audited filter
+    const hasAudit = !!scores[product.id];
+    const matchesAudit = auditFilter === 'ALL' ||
+      (auditFilter === 'AUDITED' && hasAudit) ||
+      (auditFilter === 'NOT_AUDITED' && !hasAudit);
+
+    // 4. Optimized filter
+    const hasOptimize = !!optimizations[product.id];
+    const matchesOptimize = optimizeFilter === 'ALL' ||
+      (optimizeFilter === 'OPTIMIZED' && hasOptimize) ||
+      (optimizeFilter === 'NOT_OPTIMIZED' && !hasOptimize);
+
+    return matchesSearch && matchesStatus && matchesAudit && matchesOptimize;
+  });
 
   return (
     <div>
@@ -86,6 +113,86 @@ export default function Dashboard({
           </div>
         </div>
 
+        {/* Filter Controls Toolbar */}
+        <div className="filters-bar">
+          <div className="filters-bar-title">
+            <span>⚙️ Filter Products</span>
+          </div>
+
+          <div className="filter-group">
+            <label htmlFor="filter-status">Shopify Status</label>
+            <select
+              id="filter-status"
+              className="form-control"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              {uniqueStatuses.map(status => (
+                <option key={status} value={status}>
+                  {status === 'ALL' ? 'All Statuses' : status}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label htmlFor="filter-audit">Audit Status</label>
+            <select
+              id="filter-audit"
+              className="form-control"
+              value={auditFilter}
+              onChange={(e) => setAuditFilter(e.target.value)}
+            >
+              <option value="ALL">All Audit States</option>
+              <option value="AUDITED">Audited</option>
+              <option value="NOT_AUDITED">Not Audited</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label htmlFor="filter-optimize">Optimization Status</label>
+            <select
+              id="filter-optimize"
+              className="form-control"
+              value={optimizeFilter}
+              onChange={(e) => setOptimizeFilter(e.target.value)}
+            >
+              <option value="ALL">All Optimization States</option>
+              <option value="OPTIMIZED">Optimized</option>
+              <option value="NOT_OPTIMIZED">Not Optimized</option>
+            </select>
+          </div>
+
+          {(searchTerm || statusFilter !== 'ALL' || auditFilter !== 'ALL' || optimizeFilter !== 'ALL') && (
+            <div className="filter-actions">
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.6rem 1rem', height: '38px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('ALL');
+                  setAuditFilter('ALL');
+                  setOptimizeFilter('ALL');
+                }}
+              >
+                Clear Filters 🔄
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Results Info Counter */}
+        {!isLoading && (
+          <div className="filter-results-info">
+            <span>
+              Showing <strong>{filteredProducts.length}</strong> of <strong>{totalProducts}</strong> products
+            </span>
+            {(searchTerm || statusFilter !== 'ALL' || auditFilter !== 'ALL' || optimizeFilter !== 'ALL') && (
+              <span className="badge-info">Filters Active</span>
+            )}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="spinner-wrapper">
             <div className="spinner"></div>
@@ -94,8 +201,8 @@ export default function Dashboard({
         ) : filteredProducts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--text-secondary)' }}>
             <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.75rem' }}>🔍</span>
-            <p style={{ fontWeight: 500 }}>No products matched your search.</p>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Try adjusting your keywords or clearing the filter.</p>
+            <p style={{ fontWeight: 500 }}>No products matched your search or filters.</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Try adjusting your keywords/filters or clearing them.</p>
           </div>
         ) : (
           <div className="seo-table-container">
