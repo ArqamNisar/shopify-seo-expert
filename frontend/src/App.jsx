@@ -387,12 +387,17 @@ export default function App() {
       addLogMessage(`[System] Synced successfully: ${data.message}`, 'success');
       showToast('Synced with Shopify!', 'success');
 
-      // Clear local agent cached runs to force fresh recalculation on next audit
-      setScores((prev) => {
-        const copy = { ...prev };
-        delete copy[selectedProduct.id];
-        return copy;
-      });
+      // Update local score cache with the fresh post-sync audit report
+      if (data.new_audit) {
+        setScores((prev) => ({ ...prev, [selectedProduct.id]: data.new_audit }));
+      } else {
+        setScores((prev) => {
+          const copy = { ...prev };
+          delete copy[selectedProduct.id];
+          return copy;
+        });
+      }
+
       setOptimizations((prev) => {
         const copy = { ...prev };
         delete copy[selectedProduct.id];

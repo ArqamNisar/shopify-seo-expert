@@ -629,7 +629,7 @@ body.dark-theme .btn-disabled {
 
 @media (min-width: 1024px) {
   .audit-container {
-    grid-template-columns: 3fr 2fr;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   }
 }
 
@@ -782,7 +782,7 @@ body.dark-theme .issue-item {
 
 @media (min-width: 1024px) {
   .editor-layout {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 
@@ -1389,6 +1389,9 @@ body.dark-theme .serp-favicon {
 .serp-breadcrumbs {
   font-size: 0.75rem;
   color: #4d5156;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 body.dark-theme .serp-breadcrumbs {

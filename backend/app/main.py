@@ -311,14 +311,26 @@ async def sync_optimized_product(
                     if img_response.status_code != 200:
                         logger.warning(f"Failed to update alt text for image {img_id}: {img_response.text}")
                     
-            # Clear stored records to force re-evaluation on next load
-            if product_id in AUDIT_REPORTS:
-                del AUDIT_REPORTS[product_id]
+            # Re-evaluate the product SEO score automatically after sync
+            new_audit = None
+            try:
+                updated_product = await get_product_detail(product_id, shop_url, access_token)
+                new_audit = analyze_product_seo(updated_product, GROQ_API_KEY)
+                AUDIT_REPORTS[product_id] = new_audit
+            except Exception as audit_err:
+                logger.warning(f"Failed to auto-re-evaluate product {product_id} after sync: {str(audit_err)}")
+                if product_id in AUDIT_REPORTS:
+                    del AUDIT_REPORTS[product_id]
+
             if product_id in OPTIMIZED_DATA:
                 del OPTIMIZED_DATA[product_id]
             save_db(AUDIT_REPORTS, OPTIMIZED_DATA)
 
-            return {"success": True, "message": "Product synced to Shopify store successfully."}
+            return {
+                "success": True, 
+                "message": "Product synced to Shopify store successfully.",
+                "new_audit": new_audit
+            }
             
     except Exception as e:
         logger.error(f"Failed syncing to Shopify: {str(e)}")
