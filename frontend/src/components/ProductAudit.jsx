@@ -291,7 +291,7 @@ export default function ProductAudit({
               <p style={{ fontSize: '0.85rem' }}>Please run the SEO Audit Agent again to use the new 14-point check system.</p>
             </div>
           ) : (
-            <div className="issues-list" style={{ overflowY: 'auto', maxHeight: '600px', paddingRight: '0.5rem' }}>
+            <div className="issues-list" style={{ paddingRight: '0.5rem' }}>
               {Object.entries(CHECK_METADATA).map(([key, meta]) => {
                 const s = getCheckScore(key);
                 const isFull = s === meta.max;
