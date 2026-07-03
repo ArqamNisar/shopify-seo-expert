@@ -14,10 +14,39 @@ export default function Dashboard({
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [auditFilter, setAuditFilter] = useState('ALL');
   const [optimizeFilter, setOptimizeFilter] = useState('ALL');
+  const [scoreFilter, setScoreFilter] = useState('ALL');
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // Calculate KPIs
+  // Group scores dynamically for chart distribution
+  const scoreStats = products.reduce((acc, p) => {
+    const report = scores[p.id];
+    const reportObj = Array.isArray(report) ? report[0] : report;
+    const s = reportObj ? (reportObj.seo_score !== undefined ? reportObj.seo_score : reportObj.overall_score) : null;
+    
+    if (s === null || s === undefined) {
+      acc.notAudited.push(p);
+    } else if (s >= 80) {
+      acc.healthy.push(p);
+    } else if (s >= 50) {
+      acc.warning.push(p);
+    } else {
+      acc.critical.push(p);
+    }
+    return acc;
+  }, { healthy: [], warning: [], critical: [], notAudited: [] });
+
   const totalProducts = products.length;
+  const total = totalProducts || 1;
+  const pctHealthy = Math.round((scoreStats.healthy.length / total) * 100);
+  const pctWarning = Math.round((scoreStats.warning.length / total) * 100);
+  const pctCritical = Math.round((scoreStats.critical.length / total) * 100);
+  const pctNotAudited = Math.round((scoreStats.notAudited.length / total) * 100);
+
+  const toggleScoreFilter = (filterType) => {
+    setScoreFilter(prev => prev === filterType ? 'ALL' : filterType);
+  };
+
+  // Calculate KPIs
   const auditedProducts = Object.keys(scores).length;
   const averageScore = auditedProducts > 0
     ? Math.round(Object.values(scores).reduce((sum, item) => {
@@ -59,7 +88,25 @@ export default function Dashboard({
       (optimizeFilter === 'OPTIMIZED' && hasOptimize) ||
       (optimizeFilter === 'NOT_OPTIMIZED' && !hasOptimize);
 
-    return matchesSearch && matchesStatus && matchesAudit && matchesOptimize;
+    // 5. Score distribution filter
+    let matchesScore = true;
+    if (scoreFilter !== 'ALL') {
+      const report = scores[product.id];
+      const reportObj = Array.isArray(report) ? report[0] : report;
+      const s = reportObj ? (reportObj.seo_score !== undefined ? reportObj.seo_score : reportObj.overall_score) : null;
+      
+      if (scoreFilter === 'NOT_AUDITED') {
+        matchesScore = (s === null || s === undefined);
+      } else if (scoreFilter === 'HEALTHY') {
+        matchesScore = (s !== null && s >= 80);
+      } else if (scoreFilter === 'WARNING') {
+        matchesScore = (s !== null && s >= 50 && s < 80);
+      } else if (scoreFilter === 'CRITICAL') {
+        matchesScore = (s !== null && s < 50);
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesAudit && matchesOptimize && matchesScore;
   });
 
   return (
@@ -92,6 +139,110 @@ export default function Dashboard({
             <p>Average SEO Score</p>
             <h3>{averageScore !== null ? `${averageScore}%` : 'N/A'}</h3>
           </div>
+        </div>
+      </div>
+
+      {/* SEO Health Score Distribution Segmented Chart */}
+      <div className="glass-card score-distribution-card">
+        <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>📊</span> Store SEO Health Score Distribution
+        </h3>
+        
+        {/* Segmented Bar */}
+        <div className="segmented-bar" style={{ marginBottom: '1.25rem' }}>
+          {scoreStats.healthy.length > 0 && (
+            <div 
+              onClick={() => toggleScoreFilter('HEALTHY')}
+              className={`bar-segment segment-healthy ${scoreFilter === 'HEALTHY' ? 'active' : ''}`}
+              style={{
+                width: `${pctHealthy}%`,
+                background: 'var(--seo-green)',
+                cursor: 'pointer'
+              }}
+              title={`Healthy: ${scoreStats.healthy.length} products (${pctHealthy}%)`}
+            />
+          )}
+          {scoreStats.warning.length > 0 && (
+            <div 
+              onClick={() => toggleScoreFilter('WARNING')}
+              className={`bar-segment segment-warning ${scoreFilter === 'WARNING' ? 'active' : ''}`}
+              style={{
+                width: `${pctWarning}%`,
+                background: 'var(--seo-orange)',
+                cursor: 'pointer'
+              }}
+              title={`Needs Improvement: ${scoreStats.warning.length} products (${pctWarning}%)`}
+            />
+          )}
+          {scoreStats.critical.length > 0 && (
+            <div 
+              onClick={() => toggleScoreFilter('CRITICAL')}
+              className={`bar-segment segment-critical ${scoreFilter === 'CRITICAL' ? 'active' : ''}`}
+              style={{
+                width: `${pctCritical}%`,
+                background: 'var(--seo-red)',
+                cursor: 'pointer'
+              }}
+              title={`Critical: ${scoreStats.critical.length} products (${pctCritical}%)`}
+            />
+          )}
+          {scoreStats.notAudited.length > 0 && (
+            <div 
+              onClick={() => toggleScoreFilter('NOT_AUDITED')}
+              className={`bar-segment segment-not-audited ${scoreFilter === 'NOT_AUDITED' ? 'active' : ''}`}
+              style={{
+                width: `${pctNotAudited}%`,
+                background: 'var(--text-muted)',
+                opacity: 0.5,
+                cursor: 'pointer'
+              }}
+              title={`Not Audited: ${scoreStats.notAudited.length} products (${pctNotAudited}%)`}
+            />
+          )}
+        </div>
+
+        {/* Legend buttons */}
+        <div className="distribution-legends">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <button
+              className={`legend-btn ${scoreFilter === 'HEALTHY' ? 'active' : ''}`}
+              onClick={() => toggleScoreFilter('HEALTHY')}
+            >
+              <span className="dot" style={{ background: 'var(--seo-green)' }}></span>
+              Healthy (≥80%): <strong>{scoreStats.healthy.length}</strong> ({pctHealthy}%)
+            </button>
+            <button
+              className={`legend-btn ${scoreFilter === 'WARNING' ? 'active' : ''}`}
+              onClick={() => toggleScoreFilter('WARNING')}
+            >
+              <span className="dot" style={{ background: 'var(--seo-orange)' }}></span>
+              Needs Improvement (50-79%): <strong>{scoreStats.warning.length}</strong> ({pctWarning}%)
+            </button>
+            <button
+              className={`legend-btn ${scoreFilter === 'CRITICAL' ? 'active' : ''}`}
+              onClick={() => toggleScoreFilter('CRITICAL')}
+            >
+              <span className="dot" style={{ background: 'var(--seo-red)' }}></span>
+              Critical (&lt;50%): <strong>{scoreStats.critical.length}</strong> ({pctCritical}%)
+            </button>
+            <button
+              className={`legend-btn ${scoreFilter === 'NOT_AUDITED' ? 'active' : ''}`}
+              onClick={() => toggleScoreFilter('NOT_AUDITED')}
+            >
+              <span className="dot" style={{ background: 'var(--text-muted)' }}></span>
+              Not Audited: <strong>{scoreStats.notAudited.length}</strong> ({pctNotAudited}%)
+            </button>
+          </div>
+
+          {scoreFilter !== 'ALL' && (
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', height: '34px' }}
+              onClick={() => setScoreFilter('ALL')}
+            >
+              Reset Distribution Filter 🔄
+            </button>
+          )}
         </div>
       </div>
 
@@ -167,7 +318,7 @@ export default function Dashboard({
             </select>
           </div>
 
-          {(searchTerm || statusFilter !== 'ALL' || auditFilter !== 'ALL' || optimizeFilter !== 'ALL') && (
+          {(searchTerm || statusFilter !== 'ALL' || auditFilter !== 'ALL' || optimizeFilter !== 'ALL' || scoreFilter !== 'ALL') && (
             <div className="filter-actions">
               <button
                 className="btn btn-secondary"
@@ -177,6 +328,7 @@ export default function Dashboard({
                   setStatusFilter('ALL');
                   setAuditFilter('ALL');
                   setOptimizeFilter('ALL');
+                  setScoreFilter('ALL');
                 }}
               >
                 Clear Filters 🔄
@@ -191,7 +343,7 @@ export default function Dashboard({
             <span>
               Showing <strong>{filteredProducts.length}</strong> of <strong>{totalProducts}</strong> products
             </span>
-            {(searchTerm || statusFilter !== 'ALL' || auditFilter !== 'ALL' || optimizeFilter !== 'ALL') && (
+            {(searchTerm || statusFilter !== 'ALL' || auditFilter !== 'ALL' || optimizeFilter !== 'ALL' || scoreFilter !== 'ALL') && (
               <span className="badge-info">Filters Active</span>
             )}
           </div>
