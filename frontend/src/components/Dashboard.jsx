@@ -5,12 +5,16 @@ export default function Dashboard({
   scores = {},
   optimizations = {},
   isLoading,
-  onSelectProduct
+  onSelectProduct,
+  bulkProgress = null,
+  onBulkAudit,
+  onBulkOptimize
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [auditFilter, setAuditFilter] = useState('ALL');
   const [optimizeFilter, setOptimizeFilter] = useState('ALL');
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Calculate KPIs
   const totalProducts = products.length;
@@ -209,6 +213,24 @@ export default function Dashboard({
             <table className="seo-table">
               <thead>
                 <tr>
+                  <th style={{ width: '45px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      id="select-all-products"
+                      style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                      checked={filteredProducts.length > 0 && filteredProducts.every(p => selectedIds.includes(p.id))}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const visibleIds = filteredProducts.map(p => p.id);
+                          setSelectedIds(prev => [...new Set([...prev, ...visibleIds])]);
+                        } else {
+                          const visibleIds = filteredProducts.map(p => p.id);
+                          setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
+                        }
+                      }}
+                      disabled={!!bulkProgress}
+                    />
+                  </th>
                   <th style={{ width: '60px' }}>Image</th>
                   <th>Product Details</th>
                   <th>Status</th>
@@ -225,6 +247,22 @@ export default function Dashboard({
                   
                   return (
                     <tr key={product.id}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          id={`select-product-${product.id}`}
+                          style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                          checked={selectedIds.includes(product.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds(prev => [...prev, product.id]);
+                            } else {
+                              setSelectedIds(prev => prev.filter(id => id !== product.id));
+                            }
+                          }}
+                          disabled={!!bulkProgress}
+                        />
+                      </td>
                       <td>
                         <img
                           className="table-thumb"
@@ -297,6 +335,92 @@ export default function Dashboard({
           </div>
         )}
       </div>
+
+      {/* Floating Bulk Operations Console */}
+      {(selectedIds.length > 0 || bulkProgress) && (
+        <div className="glass-card bulk-actions-bar" style={{
+          position: 'fixed',
+          bottom: '2.5rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '90%',
+          maxWidth: '750px',
+          zIndex: 1000,
+          background: 'var(--glass-bg)',
+          border: '1px solid var(--accent-purple)',
+          boxShadow: '0 20px 40px rgba(124, 58, 237, 0.15)',
+          padding: '1.25rem 2rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1.5rem',
+          flexWrap: 'wrap',
+          borderRadius: 'var(--border-radius-lg)',
+          animation: 'fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Bulk Operations Console
+            </h4>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              {bulkProgress ? (
+                <>
+                  Running bulk {bulkProgress.action === 'audit' ? 'SEO Audit' : 'SEO Optimization'}... <strong>{bulkProgress.current}</strong> of <strong>{bulkProgress.total}</strong> products
+                </>
+              ) : (
+                <>
+                  Selected <strong>{selectedIds.length}</strong> products for bulk operations.
+                </>
+              )}
+            </span>
+          </div>
+
+          {bulkProgress ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '220px' }}>
+              <div style={{
+                flex: 1,
+                height: '8px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '4px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${(bulkProgress.current / bulkProgress.total) * 100}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, var(--accent-cyan), var(--accent-purple))',
+                  borderRadius: '4px',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+              <span className="spinner spinner-purple" style={{ width: '20px', height: '20px', borderWidth: '2.5px' }}></span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <button
+                className="btn btn-accent"
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                onClick={() => onBulkAudit(selectedIds, () => setSelectedIds([]))}
+              >
+                Bulk Audit 🔍
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                onClick={() => onBulkOptimize(selectedIds, () => setSelectedIds([]))}
+              >
+                Bulk Optimize 🤖
+              </button>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', border: 'none' }}
+                onClick={() => setSelectedIds([])}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

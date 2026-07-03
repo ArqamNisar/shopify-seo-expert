@@ -21,11 +21,12 @@ export default function App() {
   const [scores, setScores] = useState({}); // productId -> auditReport
   const [optimizations, setOptimizations] = useState({}); // productId -> optimizationData
 
-  // Loading States
+  // Loading & Bulk Progress States
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(null); // { current: number, total: number, action: 'audit' | 'optimize' }
 
   // Login inputs
   const [loginUrl, setLoginUrl] = useState('');
@@ -272,6 +273,90 @@ export default function App() {
     }
   };
 
+  const runBulkSeoAudit = async (productIds, onComplete) => {
+    if (!productIds || productIds.length === 0) return;
+    setBulkProgress({ current: 0, total: productIds.length, action: 'audit' });
+    addLogMessage(`[Bulk Operations] Initiating bulk SEO analysis for ${productIds.length} products...`, 'system');
+
+    let successCount = 0;
+    for (let i = 0; i < productIds.length; i++) {
+      const id = productIds[i];
+      const product = products.find(p => p.id === id);
+      const title = product ? product.title : `ID: ${id}`;
+      setBulkProgress({ current: i + 1, total: productIds.length, action: 'audit' });
+      addLogMessage(`[Bulk Operations] (${i + 1}/${productIds.length}) Auditing "${title}"...`, 'agent');
+
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/products/${id}/analyze`, {
+          method: 'POST',
+          headers: {
+            'Shopify-Shop-Url': shopifyUrl,
+            'Shopify-Access-Token': shopifyToken
+          }
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || 'Audit request failed.');
+        }
+
+        const data = await response.json();
+        setScores((prev) => ({ ...prev, [id]: data }));
+        addLogMessage(`[Bulk Operations] (${i + 1}/${productIds.length}) Audit complete for "${title}". Score: ${data.overall_score}/100.`, 'success');
+        successCount++;
+      } catch (err) {
+        addLogMessage(`[Bulk Operations] (${i + 1}/${productIds.length}) Audit failed for "${title}": ${err.message}`, 'system');
+      }
+    }
+
+    setBulkProgress(null);
+    showToast(`Bulk Audit complete! ${successCount}/${productIds.length} successful.`, 'success');
+    addLogMessage(`[Bulk Operations] Finished bulk audit. ${successCount}/${productIds.length} products processed successfully.`, 'success');
+    if (onComplete) onComplete();
+  };
+
+  const runBulkSeoOptimize = async (productIds, onComplete) => {
+    if (!productIds || productIds.length === 0) return;
+    setBulkProgress({ current: 0, total: productIds.length, action: 'optimize' });
+    addLogMessage(`[Bulk Operations] Initiating bulk copywriting optimizations for ${productIds.length} products...`, 'system');
+
+    let successCount = 0;
+    for (let i = 0; i < productIds.length; i++) {
+      const id = productIds[i];
+      const product = products.find(p => p.id === id);
+      const title = product ? product.title : `ID: ${id}`;
+      setBulkProgress({ current: i + 1, total: productIds.length, action: 'optimize' });
+      addLogMessage(`[Bulk Operations] (${i + 1}/${productIds.length}) Generating copywriting recommendations for "${title}"...`, 'agent');
+
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/products/${id}/optimize`, {
+          method: 'POST',
+          headers: {
+            'Shopify-Shop-Url': shopifyUrl,
+            'Shopify-Access-Token': shopifyToken
+          }
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || 'Optimization request failed.');
+        }
+
+        const data = await response.json();
+        setOptimizations((prev) => ({ ...prev, [id]: data }));
+        addLogMessage(`[Bulk Operations] (${i + 1}/${productIds.length}) Optimization complete for "${title}".`, 'success');
+        successCount++;
+      } catch (err) {
+        addLogMessage(`[Bulk Operations] (${i + 1}/${productIds.length}) Optimization failed for "${title}": ${err.message}`, 'system');
+      }
+    }
+
+    setBulkProgress(null);
+    showToast(`Bulk Optimization complete! ${successCount}/${productIds.length} successful.`, 'success');
+    addLogMessage(`[Bulk Operations] Finished bulk optimization. ${successCount}/${productIds.length} products processed successfully.`, 'success');
+    if (onComplete) onComplete();
+  };
+
   const syncToShopify = async (optimizedPayload) => {
     if (!selectedProduct) return;
     setIsSyncing(true);
@@ -487,6 +572,9 @@ export default function App() {
             optimizations={optimizations}
             isLoading={isLoadingCatalog}
             onSelectProduct={handleSelectProduct}
+            bulkProgress={bulkProgress}
+            onBulkAudit={runBulkSeoAudit}
+            onBulkOptimize={runBulkSeoOptimize}
           />
         )}
 
