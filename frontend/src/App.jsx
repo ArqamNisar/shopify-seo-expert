@@ -582,6 +582,7 @@ export default function App() {
           <ProductAudit
             product={selectedProduct}
             auditReport={scores[selectedProduct.id]}
+            shopifyUrl={shopifyUrl}
             onRunAudit={runSeoAudit}
             isAuditing={isAuditing}
             onStartOptimize={() => setActiveTab('optimize')}
@@ -596,6 +597,7 @@ export default function App() {
           <OptimizerPanel
             product={selectedProduct}
             optimizationData={optimizations[selectedProduct.id]}
+            shopifyUrl={shopifyUrl}
             isOptimizing={isOptimizing}
             onRunOptimize={runSeoOptimize}
             onSync={syncToShopify}

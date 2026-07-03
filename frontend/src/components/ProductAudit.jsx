@@ -1,8 +1,58 @@
 import React from 'react';
 
+function SerpPreview({ title, description, shopifyUrl = '', handle = '' }) {
+  const [device, setDevice] = React.useState('desktop');
+  
+  const cleanUrl = shopifyUrl ? shopifyUrl.replace('https://', '').replace('http://', '') : 'store.myshopify.com';
+  
+  // Truncate logic
+  const displayTitle = title && title.length > 60 ? title.substring(0, 57) + '...' : title;
+  const displayDesc = description && description.length > 160 ? description.substring(0, 157) + '...' : description;
+  
+  return (
+    <div className={`serp-preview-container ${device}`} style={{ width: '100%', marginTop: '1.25rem' }}>
+      <div className="serp-preview-header">
+        <span>🔍 Search Snippet Preview</span>
+        <div className="serp-device-toggles">
+          <button 
+            type="button"
+            className={`serp-device-btn ${device === 'desktop' ? 'active' : ''}`}
+            onClick={() => setDevice('desktop')}
+          >
+            🖥️ Desktop
+          </button>
+          <button 
+            type="button"
+            className={`serp-device-btn ${device === 'mobile' ? 'active' : ''}`}
+            onClick={() => setDevice('mobile')}
+          >
+            📱 Mobile
+          </button>
+        </div>
+      </div>
+      
+      <div className="serp-url-line">
+        <span className="serp-favicon">🛍️</span>
+        <span className="serp-breadcrumbs">
+          {cleanUrl} › products › {handle || 'product-url'}
+        </span>
+      </div>
+      
+      <div className="serp-title">
+        {displayTitle || 'Please enter title'}
+      </div>
+      
+      <div className="serp-description">
+        {displayDesc || 'Please enter meta description'}
+      </div>
+    </div>
+  );
+}
+
 export default function ProductAudit({
   product,
   auditReport,
+  shopifyUrl = '',
   onRunAudit,
   isAuditing,
   onStartOptimize,
@@ -14,6 +64,22 @@ export default function ProductAudit({
     if (score >= 50) return 'var(--seo-orange)';
     return 'var(--seo-red)';
   };
+
+  const getMetafieldValue = (namespace, key) => {
+    if (!product || !product.metafields_list) return null;
+    const mf = product.metafields_list.find(
+      m => m.namespace === namespace && m.key === key
+    );
+    return mf ? mf.value : null;
+  };
+
+  const stripHtml = (html) => {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
+  const metaTitle = getMetafieldValue('global', 'title_tag') || product.title || '';
+  const metaDescription = getMetafieldValue('global', 'description_tag') || stripHtml(product.body_html || product.description || '');
 
   const reportObj = Array.isArray(auditReport) ? auditReport[0] : auditReport;
 
@@ -179,6 +245,13 @@ export default function ProductAudit({
               </div>
             </div>
           )}
+
+          <SerpPreview 
+            title={metaTitle} 
+            description={metaDescription} 
+            shopifyUrl={shopifyUrl} 
+            handle={product.handle} 
+          />
         </div>
 
         {/* Right Side: Audit Issues Details */}

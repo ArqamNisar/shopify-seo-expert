@@ -1,8 +1,56 @@
 import React, { useState, useEffect } from 'react';
 
+function SerpPreview({ title, description, shopifyUrl = '', handle = '' }) {
+  const [device, setDevice] = useState('desktop');
+  
+  const cleanUrl = shopifyUrl ? shopifyUrl.replace('https://', '').replace('http://', '') : 'store.myshopify.com';
+  const displayTitle = title && title.length > 60 ? title.substring(0, 57) + '...' : title;
+  const displayDesc = description && description.length > 160 ? description.substring(0, 157) + '...' : description;
+  
+  return (
+    <div className={`serp-preview-container ${device}`} style={{ width: '100%', marginTop: '1rem', marginBottom: '1.25rem' }}>
+      <div className="serp-preview-header">
+        <span>🔍 Search Snippet Preview</span>
+        <div className="serp-device-toggles">
+          <button 
+            type="button"
+            className={`serp-device-btn ${device === 'desktop' ? 'active' : ''}`}
+            onClick={() => setDevice('desktop')}
+          >
+            🖥️ Desktop
+          </button>
+          <button 
+            type="button"
+            className={`serp-device-btn ${device === 'mobile' ? 'active' : ''}`}
+            onClick={() => setDevice('mobile')}
+          >
+            📱 Mobile
+          </button>
+        </div>
+      </div>
+      
+      <div className="serp-url-line">
+        <span className="serp-favicon">🛍️</span>
+        <span className="serp-breadcrumbs">
+          {cleanUrl} › products › {handle || 'product-url'}
+        </span>
+      </div>
+      
+      <div className="serp-title">
+        {displayTitle || 'Please enter title'}
+      </div>
+      
+      <div className="serp-description">
+        {displayDesc || 'Please enter meta description'}
+      </div>
+    </div>
+  );
+}
+
 export default function OptimizerPanel({
   product,
   optimizationData,
+  shopifyUrl = '',
   isOptimizing,
   onRunOptimize,
   onSync,
@@ -43,6 +91,22 @@ export default function OptimizerPanel({
       images: editedImages
     });
   };
+
+  const getMetafieldValue = (namespace, key) => {
+    if (!product || !product.metafields_list) return null;
+    const mf = product.metafields_list.find(
+      m => m.namespace === namespace && m.key === key
+    );
+    return mf ? mf.value : null;
+  };
+
+  const stripHtml = (html) => {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
+  const originalMetaTitle = getMetafieldValue('global', 'title_tag') || product.title || '';
+  const originalMetaDescription = getMetafieldValue('global', 'description_tag') || stripHtml(product.body_html || product.description || '');
 
   const cleanDescriptionHTML = (html) => {
     if (!html) return '(No description)';
@@ -99,6 +163,13 @@ export default function OptimizerPanel({
                 Original Metadata
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Read Only</span>
               </h3>
+
+              <SerpPreview 
+                title={originalMetaTitle} 
+                description={originalMetaDescription} 
+                shopifyUrl={shopifyUrl} 
+                handle={product.handle} 
+              />
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.25rem' }}>
                 <div className="editor-field">
@@ -157,6 +228,13 @@ export default function OptimizerPanel({
                 Optimized Copy suggestions
                 <span style={{ fontSize: '0.8rem', color: 'var(--seo-green)', fontWeight: 600 }}>Interactive Editor</span>
               </h3>
+
+              <SerpPreview 
+                title={editedTitle} 
+                description={stripHtml(editedDescription)} 
+                shopifyUrl={shopifyUrl} 
+                handle={product.handle} 
+              />
 
               <form onSubmit={handleSyncSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.25rem' }}>
                 
