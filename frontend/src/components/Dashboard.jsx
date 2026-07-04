@@ -477,6 +477,13 @@ export default function Dashboard({
                           >
                             Optimize 🤖
                           </button>
+                          <button
+                            className="btn btn-accent"
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                            onClick={() => onSelectProduct(product, 'blog')}
+                          >
+                            Write Blog ✍️
+                          </button>
                         </div>
                       </td>
                     </tr>

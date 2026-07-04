@@ -8,6 +8,7 @@ import httpx
 from backend.app.config import GROQ_API_KEY
 from backend.app.agents.seo_analyzer import analyze_product_seo
 from backend.app.agents.seo_optimizer import optimize_product_seo
+from backend.app.agents.seo_blog_writer import generate_blog_article
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ import json
 
 DB_FILE = os.path.join(os.path.dirname(__file__), "db.json")
 
-def load_db() -> tuple[dict, dict]:
+def load_db() -> tuple[dict, dict, dict]:
     if os.path.exists(DB_FILE):
         try:
             with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -36,23 +37,25 @@ def load_db() -> tuple[dict, dict]:
                 # Convert string keys back to int for product_id
                 audits = {int(k): v for k, v in data.get("audits", {}).items()}
                 opts = {int(k): v for k, v in data.get("optimizations", {}).items()}
-                return audits, opts
+                blogs = {int(k): v for k, v in data.get("blogs", {}).items()}
+                return audits, opts, blogs
         except Exception as e:
             logger.error(f"Error loading database: {str(e)}")
-    return {}, {}
+    return {}, {}, {}
 
-def save_db(audits: dict, opts: dict):
+def save_db(audits: dict, opts: dict, blogs: dict = None):
     try:
         with open(DB_FILE, "w", encoding="utf-8") as f:
             json.dump({
                 "audits": {str(k): v for k, v in audits.items()},
-                "optimizations": {str(k): v for k, v in opts.items()}
+                "optimizations": {str(k): v for k, v in opts.items()},
+                "blogs": {str(k): v for k, v in (blogs or {}).items()}
             }, f, indent=2, ensure_ascii=False)
     except Exception as e:
         logger.error(f"Error saving database: {str(e)}")
 
-# Keep track of audit reports and optimization recommendations
-AUDIT_REPORTS, OPTIMIZED_DATA = load_db()
+# Keep track of audit reports, optimizations, and blog posts
+AUDIT_REPORTS, OPTIMIZED_DATA, BLOG_POSTS = load_db()
 
 class ConnectionDetails(BaseModel):
     shop_url: str
@@ -66,6 +69,23 @@ class SyncPayload(BaseModel):
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     product_type: Optional[str] = None
+
+class BlogPayload(BaseModel):
+    tone: str
+    length: str
+    include_cta: bool
+    target_keyword: Optional[str] = None
+
+class CreateBlogPayload(BaseModel):
+    title: str
+
+class ArticlePayload(BaseModel):
+    title: str
+    author: Optional[str] = None
+    tags: Optional[str] = None
+    body_html: str
+    published: bool = True
+    image_url: Optional[str] = None
 
 def get_shopify_headers(access_token: str) -> dict:
     return {
@@ -224,7 +244,7 @@ async def analyze_product(
     # Run agent analysis (uses config-based GROQ_API_KEY)
     audit_report = analyze_product_seo(product, GROQ_API_KEY, target_keyword)
     AUDIT_REPORTS[product_id] = audit_report
-    save_db(AUDIT_REPORTS, OPTIMIZED_DATA)
+    save_db(AUDIT_REPORTS, OPTIMIZED_DATA, BLOG_POSTS)
     
     return audit_report
 
@@ -254,7 +274,7 @@ async def optimize_product(
     audit_report_dict = audit_report[0] if isinstance(audit_report, list) and len(audit_report) > 0 else audit_report
     optimized_data = optimize_product_seo(product, audit_report_dict, GROQ_API_KEY, target_keyword)
     OPTIMIZED_DATA[product_id] = optimized_data
-    save_db(AUDIT_REPORTS, OPTIMIZED_DATA)
+    save_db(AUDIT_REPORTS, OPTIMIZED_DATA, BLOG_POSTS)
     
     return optimized_data
 
@@ -347,7 +367,7 @@ async def sync_optimized_product(
 
             if product_id in OPTIMIZED_DATA:
                 del OPTIMIZED_DATA[product_id]
-            save_db(AUDIT_REPORTS, OPTIMIZED_DATA)
+            save_db(AUDIT_REPORTS, OPTIMIZED_DATA, BLOG_POSTS)
 
             return {
                 "success": True, 
@@ -366,5 +386,135 @@ async def sync_optimized_product(
 def get_cached_reports():
     return {
         "scores": {str(k): v for k, v in AUDIT_REPORTS.items()},
-        "optimizations": {str(k): v for k, v in OPTIMIZED_DATA.items()}
+        "optimizations": {str(k): v for k, v in OPTIMIZED_DATA.items()},
+        "blogs": {str(k): v for k, v in BLOG_POSTS.items()}
     }
+
+@app.get("/api/blogs")
+async def get_blogs(
+    shopify_shop_url: Optional[str] = Header(None),
+    shopify_access_token: Optional[str] = Header(None)
+):
+    """Fetches list of blogs from Shopify Online Store."""
+    shop_url, access_token = check_credentials(shopify_shop_url, shopify_access_token)
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://{shop_url}/admin/api/2024-04/blogs.json",
+                headers=get_shopify_headers(access_token),
+                timeout=12.0
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Shopify Blogs fetch error: {response.text}")
+                raise HTTPException(
+                    status_code=response.status_code, 
+                    detail=f"Shopify Blogs API error: {response.text}"
+                )
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail=f"Failed to reach Shopify: {str(exc)}")
+
+@app.post("/api/blogs")
+async def create_blog(
+    payload: CreateBlogPayload,
+    shopify_shop_url: Optional[str] = Header(None),
+    shopify_access_token: Optional[str] = Header(None)
+):
+    """Creates a new blog category on Shopify Store."""
+    shop_url, access_token = check_credentials(shopify_shop_url, shopify_access_token)
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"https://{shop_url}/admin/api/2024-04/blogs.json",
+                headers=get_shopify_headers(access_token),
+                json={"blog": {"title": payload.title}},
+                timeout=12.0
+            )
+            if response.status_code == 201:
+                return response.json()
+            else:
+                logger.error(f"Shopify Blog creation error: {response.text}")
+                raise HTTPException(
+                    status_code=response.status_code, 
+                    detail=f"Shopify Blog creation API error: {response.text}"
+                )
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail=f"Failed to reach Shopify: {str(exc)}")
+
+@app.post("/api/products/{product_id}/write-blog")
+async def write_product_blog(
+    product_id: int,
+    payload: BlogPayload,
+    shopify_shop_url: Optional[str] = Header(None),
+    shopify_access_token: Optional[str] = Header(None)
+):
+    """Runs the SEO Copywriter Agent to generate a blog post draft about the product."""
+    if not GROQ_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="Backend Configuration Error: GROQ_API_KEY is not defined in the backend environment variables."
+        )
+    
+    product = await get_product_detail(product_id, shopify_shop_url, shopify_access_token)
+    blog_data = generate_blog_article(
+        product=product,
+        tone=payload.tone,
+        length=payload.length,
+        include_cta=payload.include_cta,
+        target_keyword=payload.target_keyword,
+        user_api_key=GROQ_API_KEY
+    )
+    
+    BLOG_POSTS[product_id] = blog_data
+    save_db(AUDIT_REPORTS, OPTIMIZED_DATA, BLOG_POSTS)
+    
+    return blog_data
+
+@app.post("/api/blogs/{blog_id}/articles")
+async def publish_blog_article(
+    blog_id: int,
+    payload: ArticlePayload,
+    shopify_shop_url: Optional[str] = Header(None),
+    shopify_access_token: Optional[str] = Header(None)
+):
+    """Publishes a customized article to Shopify under a specific blog category."""
+    shop_url, access_token = check_credentials(shopify_shop_url, shopify_access_token)
+    
+    article_body = {
+        "article": {
+            "title": payload.title,
+            "body_html": payload.body_html,
+            "published": payload.published
+        }
+    }
+    
+    if payload.author:
+        article_body["article"]["author"] = payload.author
+    if payload.tags:
+        article_body["article"]["tags"] = payload.tags
+    if payload.image_url:
+        article_body["article"]["image"] = {"src": payload.image_url}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"https://{shop_url}/admin/api/2024-04/blogs/{blog_id}/articles.json",
+                headers=get_shopify_headers(access_token),
+                json=article_body,
+                timeout=15.0
+            )
+            if response.status_code == 201:
+                return {
+                    "success": True,
+                    "message": "Blog post published to Shopify store successfully.",
+                    "article": response.json().get("article", {})
+                }
+            else:
+                logger.error(f"Shopify Article publish error: {response.text}")
+                raise HTTPException(
+                    status_code=response.status_code, 
+                    detail=f"Shopify Article API error: {response.text}"
+                )
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail=f"Failed to reach Shopify: {str(exc)}")

@@ -101,6 +101,57 @@
         "product_name": "Arduino Uno Starter Kit - Electronics and Home",
         "agent_reasoning": "The product information provided has a well-structured title that includes the product name and relevant keywords, a proper handle, and well-set meta title and description. However, the product description is slightly below the recommended length for optimal content quality, and there is only one image, which reduces the overall SEO score. Nevertheless, the presence of internal links, relevant tags, and custom metafields contribute positively to the final score."
       }
+    ],
+    "7643228995718": [
+      {
+        "checks": [
+          {
+            "keyword_in_title": 0
+          },
+          {
+            "product_name_in_handle": 10
+          },
+          {
+            "meta_title_set": 0
+          },
+          {
+            "product_type_relevant": 0
+          },
+          {
+            "meta_title_length": 0
+          },
+          {
+            "content_quality": 0
+          },
+          {
+            "meta_description_set": 0
+          },
+          {
+            "meta_description_length": 0
+          },
+          {
+            "internal_links": 0
+          },
+          {
+            "image_count": 5
+          },
+          {
+            "alt_text": 0
+          },
+          {
+            "relevant_tags": 0
+          },
+          {
+            "status_active": 5
+          },
+          {
+            "metafields": 5
+          }
+        ],
+        "seo_score": 25,
+        "product_name": "Jumper Wires 65 pcs | SA Electronics and Home Appliances",
+        "agent_reasoning": "The product name contains the target keyword, and the handle matches the product name. However, the meta title and meta description are not set, and the product type is empty. The content quality is poor due to the empty description. The product has more than three images, but the alt text for all images is empty. There are no relevant tags, but the product status is active, and there are custom metafields present."
+      }
     ]
   },
   "optimizations": {}

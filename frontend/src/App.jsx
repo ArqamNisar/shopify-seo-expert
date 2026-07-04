@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import ProductAudit from './components/ProductAudit';
 import OptimizerPanel from './components/OptimizerPanel';
+import BlogWriter from './components/BlogWriter';
 
 export default function App() {
   // Navigation / View State
@@ -20,6 +21,9 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [scores, setScores] = useState({}); // productId -> auditReport
   const [optimizations, setOptimizations] = useState({}); // productId -> optimizationData
+  const [blogs, setBlogs] = useState({}); // productId -> blogDraftData
+  const [isGeneratingBlog, setIsGeneratingBlog] = useState(false);
+  const [isPublishingBlog, setIsPublishingBlog] = useState(false);
 
   // Loading & Bulk Progress States
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
@@ -200,6 +204,7 @@ export default function App() {
         const data = await response.json();
         setScores(data.scores || {});
         setOptimizations(data.optimizations || {});
+        setBlogs(data.blogs || {});
       }
     } catch (err) {
       console.error('Failed to fetch cache:', err);
@@ -418,13 +423,95 @@ export default function App() {
     }
   };
 
+  const runSeoBlogWrite = async (payload) => {
+    if (!selectedProduct) return;
+    setIsGeneratingBlog(true);
+    addLogMessage(`[Blog Writer Agent] Commencing article writing for product: "${selectedProduct.title}"`, 'agent');
+    addLogMessage(`[Blog Writer Agent] Voice tone set to "${payload.tone}" with length "${payload.length}"...`, 'agent');
+    if (payload.target_keyword) {
+      addLogMessage(`[Blog Writer Agent] Incorporating keyword focus: "${payload.target_keyword}"...`, 'agent');
+    }
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/products/${selectedProduct.id}/write-blog`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Shopify-Shop-Url': shopifyUrl,
+          'Shopify-Access-Token': shopifyToken
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || 'Blog generation failed.');
+      }
+      
+      const data = await response.json();
+      setBlogs((prev) => ({ ...prev, [selectedProduct.id]: data }));
+      addLogMessage(`[Blog Writer Agent] Draft generation complete. Suggested Title: "${data.title}"`, 'success');
+      showToast('Blog article draft ready!', 'success');
+    } catch (err) {
+      addLogMessage(`[Blog Writer Agent] Blog writing failed: ${err.message}`, 'system');
+      showToast(err.message, 'error');
+    } finally {
+      setIsGeneratingBlog(false);
+    }
+  };
+
+  const publishBlogArticle = async (blogId, payload) => {
+    if (!selectedProduct) return;
+    setIsPublishingBlog(true);
+    addLogMessage(`[System] Publishing blog article to Shopify Store category ID ${blogId}...`, 'system');
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/blogs/${blogId}/articles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Shopify-Shop-Url': shopifyUrl,
+          'Shopify-Access-Token': shopifyToken
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || 'Failed to publish article.');
+      }
+      
+      const data = await response.json();
+      addLogMessage(`[System] Article published successfully! ID: ${data.article?.id || 'N/A'}`, 'success');
+      showToast('Article published to Shopify!', 'success');
+
+      // Clear draft locally after successful publish
+      setBlogs((prev) => {
+        const copy = { ...prev };
+        delete copy[selectedProduct.id];
+        return copy;
+      });
+
+      // Clear selection and go back to dashboard
+      setActiveTab('dashboard');
+      setSelectedProduct(null);
+    } catch (err) {
+      addLogMessage(`[System] Publish failed: ${err.message}`, 'system');
+      showToast(err.message, 'error');
+    } finally {
+      setIsPublishingBlog(false);
+    }
+  };
+
   const handleSelectProduct = (product, tab = 'audit') => {
     setSelectedProduct(product);
     setActiveTab(tab);
     if (tab === 'audit') {
       addLogMessage(`Auditing SEO fields for "${product.title}"...`, 'system');
-    } else {
+    } else if (tab === 'optimize') {
       addLogMessage(`Opening Optimizer Console for "${product.title}"...`, 'system');
+    } else {
+      addLogMessage(`Opening Blog Writer workshop for "${product.title}"...`, 'system');
     }
   };
 
@@ -554,6 +641,12 @@ export default function App() {
               >
                 🤖 Optimizer Console
               </button>
+              <button
+                className={`nav-button ${activeTab === 'blog' ? 'active' : ''}`}
+                onClick={() => setActiveTab('blog')}
+              >
+                ✍️ Blog Writer
+              </button>
             </>
           )}
           
@@ -617,6 +710,26 @@ export default function App() {
             onRunOptimize={runSeoOptimize}
             onSync={syncToShopify}
             isSyncing={isSyncing}
+            onBack={() => {
+              setActiveTab('dashboard');
+              setSelectedProduct(null);
+              setTargetKeyword('');
+            }}
+          />
+        )}
+
+        {activeTab === 'blog' && selectedProduct && (
+          <BlogWriter
+            product={selectedProduct}
+            blogData={blogs[selectedProduct.id]}
+            shopifyUrl={shopifyUrl}
+            shopifyToken={shopifyToken}
+            targetKeyword={targetKeyword}
+            onTargetKeywordChange={setTargetKeyword}
+            isGenerating={isGeneratingBlog}
+            onGenerateBlog={runSeoBlogWrite}
+            onPublishArticle={publishBlogArticle}
+            isPublishing={isPublishingBlog}
             onBack={() => {
               setActiveTab('dashboard');
               setSelectedProduct(null);
