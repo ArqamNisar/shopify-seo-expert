@@ -194,13 +194,80 @@ export default function BlogWriter({
       tags: editedTags,
       body_html: editedContent,
       published: publishStatus,
-      image_url: selectedImage || null
+      image_url: selectedImage || null,
+      meta_title: editedMetaTitle || null,
+      meta_description: editedMetaDescription || null
     });
   };
 
   const wordCount = editedContent 
     ? editedContent.replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length 
     : 0;
+
+  // SEO Optimal Target Lengths
+  const targetWords = length === 'short' ? 400 : length === 'medium' ? 800 : 1200;
+  const minWords = Math.round(targetWords * 0.9);
+  const maxWords = Math.round(targetWords * 1.1);
+
+  const isTitleOptimal = editedTitle.length >= 50 && editedTitle.length <= 70;
+  const isMetaTitleOptimal = editedMetaTitle.length >= 50 && editedMetaTitle.length <= 60;
+  const isMetaDescOptimal = editedMetaDescription.length >= 120 && editedMetaDescription.length <= 190;
+  const isBodyOptimal = wordCount >= minWords && wordCount <= maxWords;
+
+  // Keyword check logic
+  const kw = targetKeyword ? targetKeyword.toLowerCase().trim() : '';
+  const cleanBodyText = editedContent ? editedContent.replace(/<[^>]*>/g, ' ').toLowerCase() : '';
+  const keywordInTitle = kw ? editedTitle.toLowerCase().includes(kw) : true;
+  const keywordInMetaTitle = kw ? editedMetaTitle.toLowerCase().includes(kw) : true;
+  const keywordInMetaDesc = kw ? editedMetaDescription.toLowerCase().includes(kw) : true;
+
+  let keywordDensityCount = 0;
+  if (kw && cleanBodyText) {
+    let pos = cleanBodyText.indexOf(kw);
+    while (pos !== -1) {
+      keywordDensityCount++;
+      pos = cleanBodyText.indexOf(kw, pos + kw.length);
+    }
+  }
+  const isKeywordDensityOptimal = kw ? (keywordDensityCount >= 3 && keywordDensityCount <= 5) : true;
+
+  const handleAutoFix = () => {
+    // 1. Fix Article Title: 50 to 70 chars
+    let newTitle = editedTitle.trim();
+    if (newTitle.length < 50) {
+      newTitle = `${newTitle} | Complete Product Guide & Review`;
+      if (newTitle.length > 70) {
+        newTitle = newTitle.substring(0, 70);
+      }
+    } else if (newTitle.length > 70) {
+      newTitle = newTitle.substring(0, 67) + '...';
+    }
+    setEditedTitle(newTitle);
+
+    // 2. Fix Meta Title: 50 to 60 chars
+    let newMetaTitle = editedMetaTitle.trim() || newTitle;
+    if (newMetaTitle.length < 50) {
+      newMetaTitle = `${newMetaTitle} | Shop Online`;
+      if (newMetaTitle.length > 60) {
+        newMetaTitle = newMetaTitle.substring(0, 60);
+      }
+    } else if (newMetaTitle.length > 60) {
+      newMetaTitle = newMetaTitle.substring(0, 57) + '...';
+    }
+    setEditedMetaTitle(newMetaTitle);
+
+    // 3. Fix Meta Description: 120 to 190 chars
+    let newMetaDesc = editedMetaDescription.trim();
+    if (newMetaDesc.length < 120) {
+      newMetaDesc = `${newMetaDesc} Discover key features, technical specifications, real-world application context, and comprehensive customer feedback details.`;
+      if (newMetaDesc.length > 190) {
+        newMetaDesc = newMetaDesc.substring(0, 190);
+      }
+    } else if (newMetaDesc.length > 190) {
+      newMetaDesc = newMetaDesc.substring(0, 187) + '...';
+    }
+    setEditedMetaDescription(newMetaDesc);
+  };
 
   return (
     <div>
@@ -519,8 +586,104 @@ export default function BlogWriter({
               </p>
             </div>
           ) : (
-            <div className="glass-card" style={{ minHeight: '600px', borderColor: 'rgba(124, 58, 237, 0.15)' }}>
+            <div className="glass-card" style={{ minHeight: '600px', borderColor: 'rgba(124, 58, 237, 0.15)', padding: '1.5rem' }}>
               
+              {/* SEO Compliance Checklist Panel */}
+              <div className="seo-compliance-panel" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                    <span>📊</span> SEO Optimization Checklist
+                  </h4>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleAutoFix}
+                    style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem', border: '1px solid rgba(124, 58, 237, 0.3)', background: 'rgba(124, 58, 237, 0.05)', color: 'var(--accent-purple)' }}
+                    title="Programmatically adjust Title, Meta Title, and Meta Description lengths to fit ideal limits."
+                  >
+                    <span>🪄</span> Auto-Fix Lengths
+                  </button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  {/* Character Limits Checklist */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                      <span style={{ fontSize: '1.1rem' }}>{isTitleOptimal ? '🟢' : '🔴'}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Article Title ({editedTitle.length} chars)</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Target: 50-70 characters</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                      <span style={{ fontSize: '1.1rem' }}>{isMetaTitleOptimal ? '🟢' : '🔴'}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>SEO Meta Title ({editedMetaTitle.length} chars)</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Target: 50-60 characters</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                      <span style={{ fontSize: '1.1rem' }}>{isMetaDescOptimal ? '🟢' : '🔴'}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>SEO Meta Description ({editedMetaDescription.length} chars)</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Target: 120-190 characters</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                      <span style={{ fontSize: '1.1rem' }}>{isBodyOptimal ? '🟢' : '🔴'}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Article Body ({wordCount} words)</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Target: ~{targetWords} words ({minWords}-{maxWords} allowed)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Keyword Limits Checklist (only visible if keyword is set) */}
+                  {targetKeyword ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>{keywordInTitle ? '🟢' : '🔴'}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Keyword in Title</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Must include "{targetKeyword}"</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>{keywordInMetaTitle ? '🟢' : '🔴'}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Keyword in Meta Title</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Must include "{targetKeyword}"</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>{keywordInMetaDesc ? '🟢' : '🔴'}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Keyword in Meta Desc</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Must include "{targetKeyword}"</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>{isKeywordDensityOptimal ? '🟢' : '🔴'}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Keyword Density ({keywordDensityCount}x)</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Recommended: 3 to 5 mentions</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px dashed var(--border-color)', borderRadius: '8px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                      ℹ️ Enter a target keyword in Settings (left pane) to enable keyword optimization checks.
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Visual Preview Tab */}
               {previewTab === 'preview' && (
                 <div style={{ animation: 'fadeIn 0.3s ease both' }}>

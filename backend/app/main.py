@@ -86,6 +86,8 @@ class ArticlePayload(BaseModel):
     body_html: str
     published: bool = True
     image_url: Optional[str] = None
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
 
 def get_shopify_headers(access_token: str) -> dict:
     return {
@@ -495,6 +497,24 @@ async def publish_blog_article(
         article_body["article"]["tags"] = payload.tags
     if payload.image_url:
         article_body["article"]["image"] = {"src": payload.image_url}
+
+    metafields = []
+    if payload.meta_title:
+        metafields.append({
+            "namespace": "global",
+            "key": "title_tag",
+            "value": payload.meta_title,
+            "type": "single_line_text_field"
+        })
+    if payload.meta_description:
+        metafields.append({
+            "namespace": "global",
+            "key": "description_tag",
+            "value": payload.meta_description,
+            "type": "multi_line_text_field"
+        })
+    if metafields:
+        article_body["article"]["metafields"] = metafields
 
     try:
         async with httpx.AsyncClient() as client:

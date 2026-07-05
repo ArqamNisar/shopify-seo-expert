@@ -3,6 +3,61 @@ import re
 from groq import Groq
 from backend.app.config import GROQ_API_KEY, GROQ_MODEL_OPTIMIZER
 
+# SEO Character Limit Constants
+TITLE_MIN = 50
+TITLE_MAX = 70
+META_TITLE_MIN = 50
+META_TITLE_MAX = 60
+META_DESC_MIN = 120
+META_DESC_MAX = 190
+
+def enforce_seo_limits(blog_data: dict) -> dict:
+    """
+    Programmatically adjusts generated blog article fields to strictly comply
+    with SEO character count boundaries:
+    - title: 50-70 chars
+    - meta_title: 50-60 chars
+    - meta_description: 120-190 chars
+    """
+    title = blog_data.get("title", "").strip()
+    meta_title = blog_data.get("meta_title", "").strip()
+    meta_desc = blog_data.get("meta_description", "").strip()
+    
+    # 1. Enforce Article Title: 50-70 chars
+    if len(title) < TITLE_MIN:
+        # Pad with engaging suffix
+        suffix = " | Complete Product Review & Shopping Guide"
+        title = f"{title}{suffix}"
+        if len(title) > TITLE_MAX:
+            title = title[:TITLE_MAX]
+    elif len(title) > TITLE_MAX:
+        title = title[:TITLE_MAX - 3] + "..."
+        
+    # 2. Enforce Meta Title: 50-60 chars
+    if not meta_title:
+        meta_title = title
+    if len(meta_title) < META_TITLE_MIN:
+        suffix = " | Best Shop Guide"
+        meta_title = f"{meta_title}{suffix}"
+        if len(meta_title) > META_TITLE_MAX:
+            meta_title = meta_title[:META_TITLE_MAX]
+    elif len(meta_title) > META_TITLE_MAX:
+        meta_title = meta_title[:META_TITLE_MAX - 3] + "..."
+        
+    # 3. Enforce Meta Description: 120-190 chars
+    if len(meta_desc) < META_DESC_MIN:
+        padding = " Explore key features, specifications, customer feedback, and in-depth details in our comprehensive blog article."
+        meta_desc = f"{meta_desc}{padding}"
+        if len(meta_desc) > META_DESC_MAX:
+            meta_desc = meta_desc[:META_DESC_MAX]
+    elif len(meta_desc) > META_DESC_MAX:
+        meta_desc = meta_desc[:META_DESC_MAX - 3] + "..."
+        
+    blog_data["title"] = title
+    blog_data["meta_title"] = meta_title
+    blog_data["meta_description"] = meta_desc
+    return blog_data
+
 def run_heuristic_blog_writing(
     product: dict, 
     tone: str, 
@@ -108,13 +163,9 @@ def run_heuristic_blog_writing(
     
     # Meta Details
     meta_title = f"Why Choose the {title} | Full Overview"
-    if len(meta_title) > 60:
-        meta_title = meta_title[:57] + "..."
     meta_desc = f"Looking for a reliable review of the {title}? Read our article detailing specifications, real-world testing, and key benefits."
-    if len(meta_desc) > 160:
-        meta_desc = meta_desc[:157] + "..."
 
-    return {
+    result = {
         "title": blog_title,
         "body_content": body_html,
         "tags": f"Product Spotlight, {title}, Shopping Guide" + (f", {target_keyword}" if target_keyword else ""),
@@ -122,6 +173,7 @@ def run_heuristic_blog_writing(
         "meta_description": meta_desc,
         "agent_reasoning": "Constructed high-quality, template-based blog post tailored for the selected tone and length guidelines (Groq API Key not active, using rules-based content engine)."
     }
+    return enforce_seo_limits(result)
 
 def generate_blog_article(
     product: dict,
@@ -169,15 +221,17 @@ def generate_blog_article(
     === COPYWRITING REQUIREMENTS ===
     - DO NOT write plain text; format the post body entirely in structured HTML. Use tags like `<p>`, `<h3>`, `<h4>`, `<ul>`, `<li>`, `<strong>`, `<em>`.
     - DO NOT use `<h1>` or `<h2>` tags. They are reserved for Shopify's theme architecture.
-    - Craft a highly engaging title between 50-70 characters.
-    - Write a search engine meta title (50-60 chars) and meta description (120-190 chars) specifically for the blog article page.
+    - Craft a highly engaging Article Title: STRICTLY between 50-70 characters.
+    - Write a search engine Meta Title: STRICTLY between 50-60 characters.
+    - Write a search engine Meta Description: STRICTLY between 120-190 characters (plain text only).
+    - Ensure the Article Content Body is close to the requested target word count (~{target_words} words, strictly within ±10%). Write comprehensive paragraphs and sub-sections to satisfy this length constraint.
     - Suggest 3-5 relevant article tags.
 
     === OUTPUT SCHEMA ===
     Return ONLY a valid JSON object matching this exact schema:
     {{
-        "title": "<string: catchy, SEO-friendly blog post title>",
-        "body_content": "<string: HTML-formatted blog body content>",
+        "title": "<string: catchy, SEO-friendly blog post title, 50-70 chars>",
+        "body_content": "<string: HTML-formatted blog body content, ~{target_words} words>",
         "tags": "<string: comma-separated list of article tags>",
         "meta_title": "<string: 50-60 chars meta title for SEO>",
         "meta_description": "<string: 120-190 chars meta description for SEO, plain text only>",
@@ -191,7 +245,7 @@ def generate_blog_article(
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a specialized JSON-outputting Shopify blog writing assistant. Always output strictly valid JSON content."
+                    "content": "You are a specialized JSON-outputting Shopify blog writing assistant. Always output strictly valid JSON content. You pay extreme attention to character length limits and word count requirements."
                 },
                 {
                     "role": "user",
@@ -217,7 +271,8 @@ def generate_blog_article(
         if not result.get("tags"):
             result["tags"] = f"Spotlight, {title}"
 
-        return result
+        # Enforce all SEO limits programmatically
+        return enforce_seo_limits(result)
         
     except Exception as e:
         # Graceful fallback on LLM failure
