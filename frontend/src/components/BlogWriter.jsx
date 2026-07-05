@@ -267,6 +267,46 @@ export default function BlogWriter({
       newMetaDesc = newMetaDesc.substring(0, 187) + '...';
     }
     setEditedMetaDescription(newMetaDesc);
+
+    // 4. Fix Article Content Body Word Count
+    let currentWords = wordCount;
+    if (currentWords < minWords) {
+      // Too short: append professional SEO paragraphs to meet minWords
+      let newHtml = editedContent;
+      const keywordToWeave = targetKeyword ? targetKeyword : (product?.title || 'this premium product');
+      const extraParagraphs = [
+        `<p>Furthermore, choosing the ${keywordToWeave} ensures that you are utilizing a solution designed with top-tier materials to guarantee long-term stability and reliability in various settings. Our engineering team has focused on optimizing the user interface and structural build, ensuring a seamless experience and a product that continues to deliver value over time.</p>`,
+        `<p>Additionally, integrating the ${keywordToWeave} into your setup addresses key requirements for efficiency and durability. We offer dedicated customer support, a comprehensive warranty, and helpful setup guidelines to ensure you get the absolute most out of your investment. Join thousands of satisfied users who have elevated their daily routines with this modern solution.</p>`,
+        `<p>In conclusion, selecting the ${keywordToWeave} is the best way to guarantee high-performance, quality craftsmanship, and reliable daily operation. Don't miss the opportunity to upgrade your setup with this outstanding tool that stands out from standard marketplace alternatives.</p>`
+      ];
+
+      for (const p of extraParagraphs) {
+        newHtml = `${newHtml}\n\n${p}`;
+        const tempClean = newHtml.replace(/<[^>]*>/g, ' ').trim();
+        const tempWords = tempClean.split(/\s+/).filter(Boolean).length;
+        if (tempWords >= minWords) {
+          break;
+        }
+      }
+      setEditedContent(newHtml);
+    } else if (currentWords > maxWords) {
+      // Too long: truncate paragraph/header blocks safely
+      const parts = editedContent.split(/(?<=<\/p>|<\/h3>|<\/h4>|<\/ul>)/gi).map(p => p.trim()).filter(Boolean);
+      let newHtml = "";
+      let wordAccumulator = 0;
+      for (const part of parts) {
+        const partText = part.replace(/<[^>]*>/g, ' ').trim();
+        const partWords = partText.split(/\s+/).filter(Boolean).length;
+        
+        if (wordAccumulator + partWords <= maxWords || newHtml === "") {
+          newHtml += (newHtml ? "\n\n" : "") + part;
+          wordAccumulator += partWords;
+        } else {
+          break;
+        }
+      }
+      setEditedContent(newHtml);
+    }
   };
 
   return (
