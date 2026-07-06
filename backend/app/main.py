@@ -473,6 +473,40 @@ async def write_product_blog(
     
     return blog_data
 
+@app.get("/api/blogs/{blog_id}/articles")
+async def get_blog_articles(
+    blog_id: int,
+    shopify_shop_url: Optional[str] = Header(None),
+    shopify_access_token: Optional[str] = Header(None)
+):
+    """Fetches all articles published under a specific blog category from Shopify."""
+    shop_url, access_token = check_credentials(shopify_shop_url, shopify_access_token)
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://{shop_url}/admin/api/2024-04/blogs/{blog_id}/articles.json?limit=50&fields=id,title,author,tags,published_at,created_at,updated_at,published,handle,image",
+                headers=get_shopify_headers(access_token),
+                timeout=12.0
+            )
+            if response.status_code == 200:
+                articles = response.json().get("articles", [])
+                # Enrich each article with a storefront URL
+                clean_url = shop_url.replace(".myshopify.com", "")
+                for article in articles:
+                    article_handle = article.get("handle", "")
+                    # Fetch the blog handle for the URL
+                    article["storefront_url"] = f"https://{shop_url}/blogs/{blog_id}/{article_handle}"
+                return {"articles": articles}
+            else:
+                logger.error(f"Shopify Articles fetch error: {response.text}")
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Shopify Articles API error: {response.text}"
+                )
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail=f"Failed to reach Shopify: {str(exc)}")
+
+
 @app.post("/api/blogs/{blog_id}/articles")
 async def publish_blog_article(
     blog_id: int,

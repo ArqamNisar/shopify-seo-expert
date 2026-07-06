@@ -87,10 +87,21 @@ export default function BlogWriter({
   const [showCreateBlogForm, setShowCreateBlogForm] = useState(false);
   const [previewTab, setPreviewTab] = useState('preview'); // 'preview' | 'html'
 
+  // Published articles tracking
+  const [publishedArticles, setPublishedArticles] = useState([]);
+  const [isLoadingArticles, setIsLoadingArticles] = useState(false);
+
   // Fetch blogs list from Shopify on mount
   useEffect(() => {
     fetchBlogs();
   }, [shopifyUrl, shopifyToken]);
+
+  // Fetch published articles when selected blog changes
+  useEffect(() => {
+    if (selectedBlogId) {
+      fetchPublishedArticles(selectedBlogId);
+    }
+  }, [selectedBlogId]);
 
   // Load generated blog draft into interactive editor
   useEffect(() => {
@@ -133,6 +144,27 @@ export default function BlogWriter({
       console.error('Failed to fetch blogs:', err);
     } finally {
       setIsLoadingBlogs(false);
+    }
+  };
+
+  const fetchPublishedArticles = async (blogId) => {
+    if (!shopifyUrl || !shopifyToken || !blogId) return;
+    setIsLoadingArticles(true);
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/blogs/${blogId}/articles`, {
+        headers: {
+          'Shopify-Shop-Url': shopifyUrl,
+          'Shopify-Access-Token': shopifyToken
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPublishedArticles(data.articles || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch published articles:', err);
+    } finally {
+      setIsLoadingArticles(false);
     }
   };
 
@@ -182,13 +214,13 @@ export default function BlogWriter({
     });
   };
 
-  const handlePublishSubmit = (e) => {
+  const handlePublishSubmit = async (e) => {
     e.preventDefault();
     if (!selectedBlogId) {
       alert('Please select or create a Shopify blog category before publishing.');
       return;
     }
-    onPublishArticle(selectedBlogId, {
+    await onPublishArticle(selectedBlogId, {
       title: editedTitle,
       author: authorName,
       tags: editedTags,
@@ -198,6 +230,8 @@ export default function BlogWriter({
       meta_title: editedMetaTitle || null,
       meta_description: editedMetaDescription || null
     });
+    // Refresh published articles list after publish
+    fetchPublishedArticles(selectedBlogId);
   };
 
   const wordCount = editedContent 
@@ -508,6 +542,130 @@ export default function BlogWriter({
                   )}
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* Section 3: Published Articles History */}
+          {selectedBlogId && (
+            <div className="glass-card" style={{ marginTop: '1.25rem', animation: 'fadeIn 0.3s ease both' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  <span>📋</span> Published Articles
+                </h3>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
+                  onClick={() => fetchPublishedArticles(selectedBlogId)}
+                  disabled={isLoadingArticles}
+                  title="Refresh articles list"
+                >
+                  {isLoadingArticles ? (
+                    <span className="spinner" style={{ width: '12px', height: '12px', borderWidth: '1.5px' }}></span>
+                  ) : '🔄 Refresh'}
+                </button>
+              </div>
+
+              {isLoadingArticles && publishedArticles.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  <span className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', marginRight: '0.5rem' }}></span>
+                  Loading articles...
+                </div>
+              ) : publishedArticles.length === 0 ? (
+                <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', background: 'rgba(255,255,255,0.01)', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+                  <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.4rem' }}>📭</span>
+                  No articles published to this blog yet.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '400px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+                  {publishedArticles.map((article) => {
+                    const pubDate = article.published_at
+                      ? new Date(article.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : null;
+                    const isPublished = !!article.published_at;
+
+                    return (
+                      <div
+                        key={article.id}
+                        style={{
+                          display: 'flex',
+                          gap: '0.75rem',
+                          padding: '0.75rem',
+                          background: 'var(--bg-secondary)',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color)',
+                          alignItems: 'flex-start',
+                          transition: 'border-color 0.2s'
+                        }}
+                      >
+                        {/* Article thumbnail */}
+                        {article.image?.src ? (
+                          <img
+                            src={article.image.src}
+                            alt=""
+                            style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0, border: '1px solid var(--border-color)' }}
+                          />
+                        ) : (
+                          <div style={{ width: '44px', height: '44px', borderRadius: '6px', flexShrink: 0, background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid var(--border-color)' }}>
+                            📄
+                          </div>
+                        )}
+
+                        {/* Article details */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {article.title}
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            {/* Status badge */}
+                            <span style={{
+                              padding: '0.1rem 0.4rem',
+                              borderRadius: '4px',
+                              fontSize: '0.65rem',
+                              fontWeight: 600,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.03em',
+                              background: isPublished ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                              color: isPublished ? 'var(--seo-green)' : 'var(--seo-orange)',
+                              border: `1px solid ${isPublished ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`
+                            }}>
+                              {isPublished ? '● Live' : '○ Draft'}
+                            </span>
+                            {article.author && <span>by {article.author}</span>}
+                            {pubDate && <span>· {pubDate}</span>}
+                          </div>
+                        </div>
+
+                        {/* View on Shopify link */}
+                        <a
+                          href={`https://${shopifyUrl.replace('https://', '').replace('http://', '')}/admin/articles/${article.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            flexShrink: 0,
+                            fontSize: '0.7rem',
+                            color: 'var(--accent-purple)',
+                            textDecoration: 'none',
+                            padding: '0.2rem 0.4rem',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(124, 58, 237, 0.2)',
+                            background: 'rgba(124, 58, 237, 0.04)',
+                            whiteSpace: 'nowrap',
+                            transition: 'background 0.15s'
+                          }}
+                          title="Open in Shopify Admin"
+                        >
+                          View ↗
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div style={{ marginTop: '0.75rem', fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                {publishedArticles.length} article{publishedArticles.length !== 1 ? 's' : ''} in this blog
+              </div>
             </div>
           )}
         </div>

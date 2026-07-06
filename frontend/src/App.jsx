@@ -485,16 +485,6 @@ export default function App() {
       addLogMessage(`[System] Article published successfully! ID: ${data.article?.id || 'N/A'}`, 'success');
       showToast('Article published to Shopify!', 'success');
 
-      // Clear draft locally after successful publish
-      setBlogs((prev) => {
-        const copy = { ...prev };
-        delete copy[selectedProduct.id];
-        return copy;
-      });
-
-      // Clear selection and go back to dashboard
-      setActiveTab('dashboard');
-      setSelectedProduct(null);
     } catch (err) {
       addLogMessage(`[System] Publish failed: ${err.message}`, 'system');
       showToast(err.message, 'error');
