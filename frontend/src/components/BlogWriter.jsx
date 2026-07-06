@@ -92,44 +92,14 @@ export default function BlogWriter({
     fetchBlogs();
   }, [shopifyUrl, shopifyToken]);
 
-  // Load generated blog draft into interactive editor and auto-fix SEO lengths
+  // Load generated blog draft into interactive editor
   useEffect(() => {
     if (blogData) {
-      // Apply SEO length enforcement inline during load
-      let title = (blogData.title || '').trim();
-      let metaTitle = (blogData.meta_title || '').trim();
-      let metaDesc = (blogData.meta_description || '').trim();
-
-      // Fix Article Title: 50-70 chars
-      if (title.length < 50) {
-        title = `${title} | Complete Product Guide & Review`;
-        if (title.length > 70) title = title.substring(0, 70);
-      } else if (title.length > 70) {
-        title = title.substring(0, 67) + '...';
-      }
-
-      // Fix Meta Title: 50-60 chars
-      if (!metaTitle) metaTitle = title;
-      if (metaTitle.length < 50) {
-        metaTitle = `${metaTitle} | Shop Online`;
-        if (metaTitle.length > 60) metaTitle = metaTitle.substring(0, 60);
-      } else if (metaTitle.length > 60) {
-        metaTitle = metaTitle.substring(0, 57) + '...';
-      }
-
-      // Fix Meta Description: 120-190 chars
-      if (metaDesc.length < 120) {
-        metaDesc = `${metaDesc} Discover key features, technical specifications, real-world application context, and comprehensive customer feedback details.`;
-        if (metaDesc.length > 190) metaDesc = metaDesc.substring(0, 190);
-      } else if (metaDesc.length > 190) {
-        metaDesc = metaDesc.substring(0, 187) + '...';
-      }
-
-      setEditedTitle(title);
+      setEditedTitle(blogData.title || '');
       setEditedContent(blogData.body_content || '');
       setEditedTags(blogData.tags || '');
-      setEditedMetaTitle(metaTitle);
-      setEditedMetaDescription(metaDesc);
+      setEditedMetaTitle(blogData.meta_title || '');
+      setEditedMetaDescription(blogData.meta_description || '');
     }
   }, [blogData]);
 

@@ -1,7 +1,10 @@
 import json
 import re
+import logging
 from groq import Groq
 from backend.app.config import GROQ_API_KEY, GROQ_MODEL_OPTIMIZER
+
+logger = logging.getLogger(__name__)
 
 # SEO Character Limit Constants
 TITLE_MIN = 50
@@ -10,29 +13,124 @@ META_TITLE_MIN = 50
 META_TITLE_MAX = 60
 META_DESC_MIN = 120
 META_DESC_MAX = 190
+BODY_WORD_TOLERANCE = 0.10  # ±10%
 
-def enforce_seo_limits(blog_data: dict) -> dict:
+# Maximum number of LLM refinement attempts
+MAX_REFINEMENT_ATTEMPTS = 2
+
+
+def check_seo_compliance(blog_data: dict, target_words: int) -> dict:
     """
-    Programmatically adjusts generated blog article fields to strictly comply
-    with SEO character count boundaries:
-    - title: 50-70 chars
-    - meta_title: 50-60 chars
-    - meta_description: 120-190 chars
+    Validates all SEO fields against their length limits.
+    Returns a dict of violations (field -> description). Empty dict = all compliant.
+    """
+    violations = {}
+    title = blog_data.get("title", "").strip()
+    meta_title = blog_data.get("meta_title", "").strip()
+    meta_desc = blog_data.get("meta_description", "").strip()
+    body_content = blog_data.get("body_content", "")
+
+    # Check Article Title: 50-70 chars
+    if len(title) < TITLE_MIN:
+        violations["title"] = f"Too short ({len(title)} chars). Must be between {TITLE_MIN}-{TITLE_MAX} characters."
+    elif len(title) > TITLE_MAX:
+        violations["title"] = f"Too long ({len(title)} chars). Must be between {TITLE_MIN}-{TITLE_MAX} characters."
+
+    # Check Meta Title: 50-60 chars
+    if len(meta_title) < META_TITLE_MIN:
+        violations["meta_title"] = f"Too short ({len(meta_title)} chars). Must be between {META_TITLE_MIN}-{META_TITLE_MAX} characters."
+    elif len(meta_title) > META_TITLE_MAX:
+        violations["meta_title"] = f"Too long ({len(meta_title)} chars). Must be between {META_TITLE_MIN}-{META_TITLE_MAX} characters."
+
+    # Check Meta Description: 120-190 chars
+    if len(meta_desc) < META_DESC_MIN:
+        violations["meta_description"] = f"Too short ({len(meta_desc)} chars). Must be between {META_DESC_MIN}-{META_DESC_MAX} characters."
+    elif len(meta_desc) > META_DESC_MAX:
+        violations["meta_description"] = f"Too long ({len(meta_desc)} chars). Must be between {META_DESC_MIN}-{META_DESC_MAX} characters."
+
+    # Check Body Content Word Count: within ±10% of target
+    body_text = re.sub(r'<[^>]*>', ' ', body_content).strip()
+    word_count = len(body_text.split()) if body_text else 0
+    min_words = int(target_words * (1 - BODY_WORD_TOLERANCE))
+    max_words = int(target_words * (1 + BODY_WORD_TOLERANCE))
+    if word_count < min_words:
+        violations["body_content"] = f"Too short ({word_count} words). Must be between {min_words}-{max_words} words (~{target_words} target)."
+    elif word_count > max_words:
+        violations["body_content"] = f"Too long ({word_count} words). Must be between {min_words}-{max_words} words (~{target_words} target)."
+
+    return violations
+
+
+def build_refinement_prompt(blog_data: dict, violations: dict, target_words: int) -> str:
+    """
+    Builds a targeted LLM prompt that asks the model to rewrite ONLY the
+    non-compliant fields to fit within their exact SEO length limits.
+    """
+    fields_to_fix = []
+    for field, issue in violations.items():
+        current_value = blog_data.get(field, "")
+        if field == "body_content":
+            # For body content, show a truncated version to save tokens
+            display_value = current_value[:500] + "..." if len(current_value) > 500 else current_value
+        else:
+            display_value = current_value
+        fields_to_fix.append(f"  - **{field}**: {issue}\n    Current value: \"{display_value}\"")
+
+    violations_block = "\n".join(fields_to_fix)
+
+    # Build the expected output fields
+    output_fields = {}
+    if "title" in violations:
+        output_fields["title"] = f"<string: rewritten article title, EXACTLY {TITLE_MIN}-{TITLE_MAX} chars>"
+    if "meta_title" in violations:
+        output_fields["meta_title"] = f"<string: rewritten meta title, EXACTLY {META_TITLE_MIN}-{META_TITLE_MAX} chars>"
+    if "meta_description" in violations:
+        output_fields["meta_description"] = f"<string: rewritten meta description, EXACTLY {META_DESC_MIN}-{META_DESC_MAX} chars, plain text only>"
+    if "body_content" in violations:
+        min_w = int(target_words * (1 - BODY_WORD_TOLERANCE))
+        max_w = int(target_words * (1 + BODY_WORD_TOLERANCE))
+        output_fields["body_content"] = f"<string: rewritten HTML body content, EXACTLY {min_w}-{max_w} words>"
+
+    output_schema = json.dumps(output_fields, indent=2)
+
+    return f"""
+You are an SEO content editor. The following blog post fields do NOT meet their required character/word count limits. 
+Your task is to REWRITE ONLY the non-compliant fields so they fit EXACTLY within the specified limits.
+
+CRITICAL RULES:
+- Do NOT just trim or pad with filler. Rewrite the content naturally and meaningfully.
+- Preserve the original meaning and SEO intent.
+- For character-limited fields (title, meta_title, meta_description): count EVERY character including spaces and punctuation.
+- For body_content: count words (HTML tags do not count as words). Use <p>, <h3>, <h4>, <ul>, <li>, <strong>, <em> tags only. Do NOT use <h1> or <h2>.
+- Return ONLY the fields that need fixing. Do NOT include fields that are already compliant.
+
+=== FIELDS THAT NEED FIXING ===
+{violations_block}
+
+=== REQUIRED OUTPUT (JSON) ===
+Return ONLY a valid JSON object with these keys:
+{output_schema}
+"""
+
+
+def enforce_seo_limits_heuristic(blog_data: dict) -> dict:
+    """
+    Programmatic fallback to adjust SEO fields when LLM is not available.
+    Only used for the heuristic (no-API) code path.
     """
     title = blog_data.get("title", "").strip()
     meta_title = blog_data.get("meta_title", "").strip()
     meta_desc = blog_data.get("meta_description", "").strip()
-    
+
     # 1. Enforce Article Title: 50-70 chars
     if len(title) < TITLE_MIN:
-        # Pad with engaging suffix
         suffix = " | Complete Product Review & Shopping Guide"
         title = f"{title}{suffix}"
         if len(title) > TITLE_MAX:
             title = title[:TITLE_MAX]
     elif len(title) > TITLE_MAX:
         title = title[:TITLE_MAX - 3] + "..."
-        
+
     # 2. Enforce Meta Title: 50-60 chars
     if not meta_title:
         meta_title = title
@@ -43,7 +141,7 @@ def enforce_seo_limits(blog_data: dict) -> dict:
             meta_title = meta_title[:META_TITLE_MAX]
     elif len(meta_title) > META_TITLE_MAX:
         meta_title = meta_title[:META_TITLE_MAX - 3] + "..."
-        
+
     # 3. Enforce Meta Description: 120-190 chars
     if len(meta_desc) < META_DESC_MIN:
         padding = " Explore key features, specifications, customer feedback, and in-depth details in our comprehensive blog article."
@@ -52,11 +150,67 @@ def enforce_seo_limits(blog_data: dict) -> dict:
             meta_desc = meta_desc[:META_DESC_MAX]
     elif len(meta_desc) > META_DESC_MAX:
         meta_desc = meta_desc[:META_DESC_MAX - 3] + "..."
-        
+
     blog_data["title"] = title
     blog_data["meta_title"] = meta_title
     blog_data["meta_description"] = meta_desc
     return blog_data
+
+
+def refine_with_llm(client: Groq, blog_data: dict, target_words: int) -> dict:
+    """
+    Checks SEO compliance and uses the LLM to naturally rewrite any
+    non-compliant fields. Retries up to MAX_REFINEMENT_ATTEMPTS times.
+    """
+    for attempt in range(MAX_REFINEMENT_ATTEMPTS):
+        violations = check_seo_compliance(blog_data, target_words)
+        if not violations:
+            logger.info("All SEO fields are within limits after generation.")
+            return blog_data
+
+        logger.info(f"SEO refinement attempt {attempt + 1}/{MAX_REFINEMENT_ATTEMPTS} — fixing: {list(violations.keys())}")
+
+        refinement_prompt = build_refinement_prompt(blog_data, violations, target_words)
+
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are an expert SEO content editor that rewrites text to fit exact character and word count limits. "
+                            "Always output strictly valid JSON. Count characters and words precisely."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": refinement_prompt
+                    }
+                ],
+                model=GROQ_MODEL_OPTIMIZER,
+                response_format={"type": "json_object"}
+            )
+
+            fix_str = chat_completion.choices[0].message.content
+            fixes = json.loads(fix_str)
+
+            # Merge fixes into the blog data
+            for field, new_value in fixes.items():
+                if field in violations and new_value and isinstance(new_value, str) and len(new_value.strip()) > 5:
+                    blog_data[field] = new_value.strip()
+                    logger.info(f"  Fixed '{field}': {len(new_value.strip())} chars")
+
+        except Exception as e:
+            logger.warning(f"LLM refinement attempt {attempt + 1} failed: {str(e)}")
+            break
+
+    # Log any remaining violations after all attempts
+    final_violations = check_seo_compliance(blog_data, target_words)
+    if final_violations:
+        logger.warning(f"Some SEO fields still out of spec after {MAX_REFINEMENT_ATTEMPTS} refinement attempts: {list(final_violations.keys())}")
+
+    return blog_data
+
 
 def run_heuristic_blog_writing(
     product: dict, 
@@ -173,7 +327,7 @@ def run_heuristic_blog_writing(
         "meta_description": meta_desc,
         "agent_reasoning": "Constructed high-quality, template-based blog post tailored for the selected tone and length guidelines (Groq API Key not active, using rules-based content engine)."
     }
-    return enforce_seo_limits(result)
+    return enforce_seo_limits_heuristic(result)
 
 def generate_blog_article(
     product: dict,
@@ -185,7 +339,8 @@ def generate_blog_article(
 ) -> dict:
     """
     Generates an SEO-optimized blog article about a product.
-    Uses Groq llama-3.3-70b-versatile for creative copywriting.
+    Uses Groq LLM for creative copywriting with a built-in refinement loop
+    that re-prompts the LLM to fix any fields that fall outside SEO length limits.
     Falls back to run_heuristic_blog_writing if key is missing or call fails.
     """
     api_key = user_api_key or GROQ_API_KEY
@@ -201,6 +356,8 @@ def generate_blog_article(
 
     word_targets = {"short": 400, "medium": 800, "long": 1200}
     target_words = word_targets.get(length.lower(), 600)
+    min_words = int(target_words * (1 - BODY_WORD_TOLERANCE))
+    max_words = int(target_words * (1 + BODY_WORD_TOLERANCE))
 
     prompt = f"""
     You are an expert SEO Copywriter and Blog Writing Agent. Your task is to write a high-quality, engaging, and SEO-optimized blog post to promote the following product:
@@ -218,23 +375,27 @@ def generate_blog_article(
     - Target SEO Keyword: "{target_keyword or '(None specified)'}" (weave it naturally into the title, subheaders, and content paragraphs 3-5 times)
     - Include Product CTA Link: {include_cta} (If true, you MUST include a call-to-action section linking back to the product. Use relative path: "/products/{handle}" with engaging anchor text)
 
+    === CRITICAL LENGTH REQUIREMENTS ===
+    You MUST count characters and words precisely. These limits are STRICTLY enforced:
+    
+    1. Article Title: EXACTLY {TITLE_MIN}-{TITLE_MAX} characters (including spaces and punctuation). Count carefully before outputting.
+    2. Meta Title: EXACTLY {META_TITLE_MIN}-{META_TITLE_MAX} characters (including spaces and punctuation). Count carefully before outputting.
+    3. Meta Description: EXACTLY {META_DESC_MIN}-{META_DESC_MAX} characters (plain text, including spaces and punctuation). Count carefully before outputting.
+    4. Article Body Content: EXACTLY {min_words}-{max_words} words (HTML tags do not count as words). Count carefully before outputting.
+
     === COPYWRITING REQUIREMENTS ===
     - DO NOT write plain text; format the post body entirely in structured HTML. Use tags like `<p>`, `<h3>`, `<h4>`, `<ul>`, `<li>`, `<strong>`, `<em>`.
     - DO NOT use `<h1>` or `<h2>` tags. They are reserved for Shopify's theme architecture.
-    - Craft a highly engaging Article Title: STRICTLY between 50-70 characters.
-    - Write a search engine Meta Title: STRICTLY between 50-60 characters.
-    - Write a search engine Meta Description: STRICTLY between 120-190 characters (plain text only).
-    - Ensure the Article Content Body is close to the requested target word count (~{target_words} words, strictly within ±10%). Write comprehensive paragraphs and sub-sections to satisfy this length constraint.
     - Suggest 3-5 relevant article tags.
 
     === OUTPUT SCHEMA ===
     Return ONLY a valid JSON object matching this exact schema:
     {{
-        "title": "<string: catchy, SEO-friendly blog post title, 50-70 chars>",
-        "body_content": "<string: HTML-formatted blog body content, ~{target_words} words>",
+        "title": "<string: catchy, SEO-friendly blog post title, {TITLE_MIN}-{TITLE_MAX} chars>",
+        "body_content": "<string: HTML-formatted blog body content, {min_words}-{max_words} words>",
         "tags": "<string: comma-separated list of article tags>",
-        "meta_title": "<string: 50-60 chars meta title for SEO>",
-        "meta_description": "<string: 120-190 chars meta description for SEO, plain text only>",
+        "meta_title": "<string: {META_TITLE_MIN}-{META_TITLE_MAX} chars meta title for SEO>",
+        "meta_description": "<string: {META_DESC_MIN}-{META_DESC_MAX} chars meta description for SEO, plain text only>",
         "agent_reasoning": "<string: summary of the SEO and copywriting strategy you used>"
     }}
     """
@@ -245,7 +406,12 @@ def generate_blog_article(
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a specialized JSON-outputting Shopify blog writing assistant. Always output strictly valid JSON content. You pay extreme attention to character length limits and word count requirements."
+                    "content": (
+                        "You are a specialized JSON-outputting Shopify blog writing assistant. "
+                        "Always output strictly valid JSON content. You pay extreme attention to "
+                        "character length limits and word count requirements. Before outputting each "
+                        "field, mentally count the characters/words to ensure compliance."
+                    )
                 },
                 {
                     "role": "user",
@@ -259,7 +425,7 @@ def generate_blog_article(
         result_str = chat_completion.choices[0].message.content
         result = json.loads(result_str)
 
-        # Basic validation / fallbacks
+        # Basic validation / fallbacks for missing fields
         if not result.get("title"):
             result["title"] = f"Spotlight on {title}: The Ultimate Guide"
         if not result.get("body_content"):
@@ -271,8 +437,10 @@ def generate_blog_article(
         if not result.get("tags"):
             result["tags"] = f"Spotlight, {title}"
 
-        # Enforce all SEO limits programmatically
-        return enforce_seo_limits(result)
+        # Use LLM-based refinement to fix any out-of-spec fields naturally
+        result = refine_with_llm(client, result, target_words)
+        
+        return result
         
     except Exception as e:
         # Graceful fallback on LLM failure
