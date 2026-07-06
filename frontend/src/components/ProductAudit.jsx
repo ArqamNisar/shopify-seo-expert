@@ -53,6 +53,7 @@ export default function ProductAudit({
   product,
   auditReport,
   shopifyUrl = '',
+  allArticles = [],
   targetKeyword = '',
   onTargetKeywordChange,
   onRunAudit,
@@ -60,6 +61,23 @@ export default function ProductAudit({
   onStartOptimize,
   onBack
 }) {
+  const getLinkedArticles = () => {
+    if (!product || !allArticles) return [];
+    const titleLower = product.title?.toLowerCase();
+    const handleLower = product.handle?.toLowerCase();
+    return allArticles.filter(art => {
+      const artBody = art.body_html?.toLowerCase() || '';
+      const artTitle = art.title?.toLowerCase() || '';
+      const artTags = art.tags?.toLowerCase() || '';
+      
+      const matchesHandle = handleLower && artBody.includes(`/products/${handleLower}`);
+      const matchesTitle = titleLower && (artTitle.includes(titleLower) || artTags.includes(titleLower));
+      return matchesHandle || matchesTitle;
+    });
+  };
+
+  const linkedArticles = getLinkedArticles();
+
   // Score indicator colors
   const getScoreColor = (score) => {
     if (score >= 80) return 'var(--seo-green)';
@@ -271,6 +289,42 @@ export default function ProductAudit({
             shopifyUrl={shopifyUrl} 
             handle={product.handle} 
           />
+
+          {/* Linked Published Articles Section */}
+          <div style={{ marginTop: '1.5rem', textAlign: 'left', background: 'rgba(236, 72, 153, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(236, 72, 153, 0.15)' }}>
+            <h4 style={{ fontSize: '0.85rem', color: '#ec4899', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}>
+              <span>📄</span> Published Articles ({linkedArticles.length})
+            </h4>
+            {linkedArticles.length === 0 ? (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                No blog articles published for this product yet. You can write one in the Blog Writer workshop.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto' }}>
+                {linkedArticles.map(art => (
+                  <div key={art.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ minWidth: 0, flex: 1, paddingRight: '0.5rem' }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {art.title}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                        By {art.author || 'SEO Agent'} · {art.blog_title}
+                      </div>
+                    </div>
+                    <a
+                      href={art.storefront_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary"
+                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem', flexShrink: 0, textDecoration: 'none' }}
+                    >
+                      View ↗
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Side: Audit Issues Details */}

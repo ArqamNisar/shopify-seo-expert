@@ -22,6 +22,7 @@ export default function App() {
   const [scores, setScores] = useState({}); // productId -> auditReport
   const [optimizations, setOptimizations] = useState({}); // productId -> optimizationData
   const [blogs, setBlogs] = useState({}); // productId -> blogDraftData
+  const [allArticles, setAllArticles] = useState([]); // Array of all published articles
   const [isGeneratingBlog, setIsGeneratingBlog] = useState(false);
   const [isPublishingBlog, setIsPublishingBlog] = useState(false);
 
@@ -74,6 +75,7 @@ export default function App() {
     if (connectedStore) {
       fetchProducts();
       fetchCache();
+      fetchAllArticles();
     }
   }, [connectedStore]);
 
@@ -156,6 +158,7 @@ export default function App() {
     setProducts([]);
     setScores({});
     setOptimizations({});
+    setAllArticles([]);
     setSelectedProduct(null);
     setActiveTab('dashboard');
     
@@ -208,6 +211,25 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to fetch cache:', err);
+    }
+  };
+
+  const fetchAllArticles = async () => {
+    if (!shopifyUrl || !shopifyToken) return;
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/articles', {
+        headers: {
+          'Shopify-Shop-Url': shopifyUrl,
+          'Shopify-Access-Token': shopifyToken
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAllArticles(data.articles || []);
+        addLogMessage(`Successfully retrieved ${data.articles?.length || 0} published articles from store blogs.`, 'success');
+      }
+    } catch (err) {
+      console.error('Failed to fetch articles list:', err);
     }
   };
 
@@ -484,6 +506,7 @@ export default function App() {
       const data = await response.json();
       addLogMessage(`[System] Article published successfully! ID: ${data.article?.id || 'N/A'}`, 'success');
       showToast('Article published to Shopify!', 'success');
+      fetchAllArticles();
 
     } catch (err) {
       addLogMessage(`[System] Publish failed: ${err.message}`, 'system');
@@ -663,6 +686,7 @@ export default function App() {
             products={products}
             scores={scores}
             optimizations={optimizations}
+            allArticles={allArticles}
             isLoading={isLoadingCatalog}
             onSelectProduct={handleSelectProduct}
             bulkProgress={bulkProgress}
@@ -676,6 +700,7 @@ export default function App() {
             product={selectedProduct}
             auditReport={scores[selectedProduct.id]}
             shopifyUrl={shopifyUrl}
+            allArticles={allArticles}
             targetKeyword={targetKeyword}
             onTargetKeywordChange={setTargetKeyword}
             onRunAudit={runSeoAudit}

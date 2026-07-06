@@ -4,6 +4,7 @@ export default function Dashboard({
   products = [],
   scores = {},
   optimizations = {},
+  allArticles = [],
   isLoading,
   onSelectProduct,
   bulkProgress = null,
@@ -16,6 +17,21 @@ export default function Dashboard({
   const [optimizeFilter, setOptimizeFilter] = useState('ALL');
   const [scoreFilter, setScoreFilter] = useState('ALL');
   const [selectedIds, setSelectedIds] = useState([]);
+
+  const getLinkedArticles = (product) => {
+    if (!product || !allArticles) return [];
+    const titleLower = product.title?.toLowerCase();
+    const handleLower = product.handle?.toLowerCase();
+    return allArticles.filter(art => {
+      const artBody = art.body_html?.toLowerCase() || '';
+      const artTitle = art.title?.toLowerCase() || '';
+      const artTags = art.tags?.toLowerCase() || '';
+      
+      const matchesHandle = handleLower && artBody.includes(`/products/${handleLower}`);
+      const matchesTitle = titleLower && (artTitle.includes(titleLower) || artTags.includes(titleLower));
+      return matchesHandle || matchesTitle;
+    });
+  };
 
   // Group scores dynamically for chart distribution
   const scoreStats = products.reduce((acc, p) => {
@@ -112,7 +128,7 @@ export default function Dashboard({
   return (
     <div>
       {/* KPI Stats */}
-      <div className="kpi-grid">
+      <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
         <div className="glass-card kpi-card">
           <div className="kpi-icon" style={{ background: 'rgba(37, 99, 235, 0.08)', color: 'var(--accent-blue)' }}>
             📦
@@ -138,6 +154,15 @@ export default function Dashboard({
           <div className="kpi-info">
             <p>Average SEO Score</p>
             <h3>{averageScore !== null ? `${averageScore}%` : 'N/A'}</h3>
+          </div>
+        </div>
+        <div className="glass-card kpi-card">
+          <div className="kpi-icon" style={{ background: 'rgba(236, 72, 153, 0.08)', color: '#ec4899' }}>
+            📄
+          </div>
+          <div className="kpi-info">
+            <p>Articles Published</p>
+            <h3>{allArticles.length}</h3>
           </div>
         </div>
       </div>
@@ -429,6 +454,29 @@ export default function Dashboard({
                         <div className="table-product-id">
                           ID: {product.id}
                         </div>
+                        {getLinkedArticles(product).length > 0 && (
+                          <div style={{ marginTop: '0.4rem', fontSize: '0.75rem' }}>
+                            <span style={{ color: '#ec4899', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <span>📄</span> {getLinkedArticles(product).length} Published Article{getLinkedArticles(product).length > 1 ? 's' : ''}:
+                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', marginTop: '0.25rem', paddingLeft: '0.4rem' }}>
+                              {getLinkedArticles(product).map(art => (
+                                <a 
+                                  key={art.id} 
+                                  href={art.storefront_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '280px' }}
+                                  title={`View article: ${art.title}`}
+                                  onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                                  onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                                >
+                                  • {art.title} ↗
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span style={{ 

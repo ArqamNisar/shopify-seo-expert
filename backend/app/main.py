@@ -473,6 +473,51 @@ async def write_product_blog(
     
     return blog_data
 
+@app.get("/api/articles")
+async def get_all_articles(
+    shopify_shop_url: Optional[str] = Header(None),
+    shopify_access_token: Optional[str] = Header(None)
+):
+    """Fetches all articles across all blogs in the Shopify Store."""
+    shop_url, access_token = check_credentials(shopify_shop_url, shopify_access_token)
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Fetch blogs
+            blogs_resp = await client.get(
+                f"https://{shop_url}/admin/api/2024-04/blogs.json",
+                headers=get_shopify_headers(access_token),
+                timeout=12.0
+            )
+            if blogs_resp.status_code != 200:
+                raise HTTPException(status_code=blogs_resp.status_code, detail="Failed to fetch blogs list.")
+            
+            blogs = blogs_resp.json().get("blogs", [])
+            all_articles = []
+            
+            # 2. Fetch articles for each blog
+            for blog in blogs:
+                blog_id = blog["id"]
+                blog_title = blog["title"]
+                blog_handle = blog.get("handle", "news")
+                articles_resp = await client.get(
+                    f"https://{shop_url}/admin/api/2024-04/blogs/{blog_id}/articles.json?limit=50&fields=id,title,author,tags,published_at,created_at,updated_at,published,handle,image,body_html",
+                    headers=get_shopify_headers(access_token),
+                    timeout=12.0
+                )
+                if articles_resp.status_code == 200:
+                    articles = articles_resp.json().get("articles", [])
+                    for art in articles:
+                        art["blog_id"] = blog_id
+                        art["blog_title"] = blog_title
+                        art["blog_handle"] = blog_handle
+                        art["storefront_url"] = f"https://{shop_url}/blogs/{blog_handle}/{art.get('handle', '')}"
+                        all_articles.append(art)
+                        
+            return {"articles": all_articles}
+    except Exception as e:
+        logger.error(f"Error fetching all articles: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/blogs/{blog_id}/articles")
 async def get_blog_articles(
     blog_id: int,
